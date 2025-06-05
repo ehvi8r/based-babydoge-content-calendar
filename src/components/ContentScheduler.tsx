@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +17,15 @@ import OptimalTimeSuggestions from './OptimalTimeSuggestions';
 import MediaUpload from './MediaUpload';
 import ContentPreview from './ContentPreview';
 import ScheduledPosts from './ScheduledPosts';
+import SpreadsheetUpload from './SpreadsheetUpload';
+
+interface SpreadsheetPost {
+  content: string;
+  date: string;
+  time: string;
+  hashtags: string;
+  status: string;
+}
 
 const ContentScheduler = () => {
   const [content, setContent] = useState('');
@@ -25,6 +33,7 @@ const ContentScheduler = () => {
   const [selectedTime, setSelectedTime] = useState('');
   const [hashtags, setHashtags] = useState('');
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [importedPosts, setImportedPosts] = useState<SpreadsheetPost[]>([]);
   const { toast } = useToast();
 
   const optimalTimes = [
@@ -32,6 +41,11 @@ const ContentScheduler = () => {
     { time: '1:00 PM', engagement: 'Medium', reason: 'Lunch break' },
     { time: '7:00 PM', engagement: 'High', reason: 'Evening social time' }
   ];
+
+  const handlePostsImported = (posts: SpreadsheetPost[]) => {
+    setImportedPosts(posts);
+    console.log('Imported posts:', posts);
+  };
 
   const handleSchedulePost = () => {
     if (!content || !selectedDate || !selectedTime) {
@@ -72,110 +86,157 @@ const ContentScheduler = () => {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Content Creation */}
       <div className="lg:col-span-2 space-y-6">
-        <Card className="bg-slate-800/50 border-blue-500/20">
-          <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
-              <Sparkles className="text-blue-400" size={20} />
-              Create New Post
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="content" className="text-blue-200">Content</Label>
-              <Textarea
-                id="content"
-                placeholder="What's happening with BabyDoge today? Share updates, news, or engage with the community..."
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="min-h-[120px] bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
-                maxLength={280}
-              />
-              <div className="flex justify-between items-center mt-1">
-                <span className="text-xs text-slate-400">
-                  {content.length}/280 characters
-                </span>
-                <Badge variant={content.length > 240 ? "destructive" : "secondary"}>
-                  {280 - content.length} remaining
-                </Badge>
-              </div>
-            </div>
+        <Tabs defaultValue="single" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-slate-800/50 border border-blue-500/20">
+            <TabsTrigger 
+              value="single" 
+              className="text-white data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            >
+              Single Post
+            </TabsTrigger>
+            <TabsTrigger 
+              value="bulk" 
+              className="text-white data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            >
+              Bulk Import
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="single" className="mt-4">
+            <Card className="bg-slate-800/50 border-blue-500/20">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Sparkles className="text-blue-400" size={20} />
+                  Create New Post
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="content" className="text-blue-200">Content</Label>
+                  <Textarea
+                    id="content"
+                    placeholder="What's happening with BabyDoge today? Share updates, news, or engage with the community..."
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    className="min-h-[120px] bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                    maxLength={280}
+                  />
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-xs text-slate-400">
+                      {content.length}/280 characters
+                    </span>
+                    <Badge variant={content.length > 240 ? "destructive" : "secondary"}>
+                      {280 - content.length} remaining
+                    </Badge>
+                  </div>
+                </div>
 
-            <div>
-              <Label htmlFor="hashtags" className="text-blue-200">Hashtags</Label>
-              <Input
-                id="hashtags"
-                placeholder="#BabyDoge #Crypto #Base #DeFi"
-                value={hashtags}
-                onChange={(e) => setHashtags(e.target.value)}
-                className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
-              />
-            </div>
+                <div>
+                  <Label htmlFor="hashtags" className="text-blue-200">Hashtags</Label>
+                  <Input
+                    id="hashtags"
+                    placeholder="#BabyDoge #Crypto #Base #DeFi"
+                    value={hashtags}
+                    onChange={(e) => setHashtags(e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                  />
+                </div>
 
-            <MediaUpload onMediaChange={setMediaFiles} />
+                <MediaUpload onMediaChange={setMediaFiles} />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-blue-200">Schedule Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal bg-slate-700 border-slate-600 text-white",
-                        !selectedDate && "text-slate-400"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-600">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={setSelectedDate}
-                      initialFocus
-                      className="pointer-events-auto"
-                      disabled={(date) => date < new Date() || date > new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-blue-200">Schedule Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal bg-slate-700 border-slate-600 text-white",
+                            !selectedDate && "text-slate-400"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-600">
+                        <Calendar
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={setSelectedDate}
+                          initialFocus
+                          className="pointer-events-auto"
+                          disabled={(date) => date < new Date() || date > new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
 
-              <div>
-                <Label className="text-blue-200">Time</Label>
-                <Select value={selectedTime} onValueChange={setSelectedTime}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                    <SelectValue placeholder="Select time" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-600">
-                    {Array.from({ length: 24 }, (_, i) => {
-                      const hour = i.toString().padStart(2, '0');
-                      return (
-                        <SelectItem key={i} value={`${hour}:00`} className="text-white">
-                          {hour}:00
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                  <div>
+                    <Label className="text-blue-200">Time</Label>
+                    <Select value={selectedTime} onValueChange={setSelectedTime}>
+                      <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                        <SelectValue placeholder="Select time" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-600">
+                        {Array.from({ length: 24 }, (_, i) => {
+                          const hour = i.toString().padStart(2, '0');
+                          return (
+                            <SelectItem key={i} value={`${hour}:00`} className="text-white">
+                              {hour}:00
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-            <div className="flex gap-3">
-              <Button 
-                onClick={handleSchedulePost}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Clock className="mr-2 h-4 w-4" />
-                Schedule Post
-              </Button>
-              <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
-                Save Draft
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={handleSchedulePost}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Clock className="mr-2 h-4 w-4" />
+                    Schedule Post
+                  </Button>
+                  <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+                    Save Draft
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="bulk" className="mt-4">
+            <SpreadsheetUpload onPostsImported={handlePostsImported} />
+            
+            {importedPosts.length > 0 && (
+              <Card className="bg-slate-800/50 border-blue-500/20 mt-4">
+                <CardHeader>
+                  <CardTitle className="text-white">Imported Posts ({importedPosts.length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {importedPosts.map((post, index) => (
+                      <div key={index} className="bg-slate-700/50 rounded-lg p-3">
+                        <p className="text-white text-sm mb-2">{post.content}</p>
+                        <div className="flex justify-between items-center text-xs text-slate-400">
+                          <span>{post.date} at {post.time}</span>
+                          <span>{post.hashtags}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <Button className="w-full mt-4 bg-green-600 hover:bg-green-700">
+                    Schedule All Posts
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
 
         <ContentPreview content={content} hashtags={hashtags} media={mediaFiles} />
       </div>
