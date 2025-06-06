@@ -34,16 +34,45 @@ const CalendarView = () => {
   });
   const { toast } = useToast();
 
-  const mockEvents: CalendarEvent[] = [
+  // Mock scheduled posts from ScheduledPosts component
+  const scheduledPosts = [
     {
       id: '1',
-      title: 'Morning Post: Market Update',
-      type: 'post',
-      date: new Date(2024, 0, 15),
-      time: '09:00'
+      content: 'Exciting news! BabyDoge is making waves in the DeFi space...',
+      date: '2024-01-15',
+      time: '09:00',
+      status: 'scheduled'
     },
     {
       id: '2',
+      content: 'Community update: Our latest partnership announcement...',
+      date: '2024-01-15',
+      time: '13:00',
+      status: 'scheduled'
+    },
+    {
+      id: '3',
+      content: 'Weekly market analysis and BabyDoge performance...',
+      date: '2024-01-15',
+      time: '19:00',
+      status: 'scheduled'
+    }
+  ];
+
+  // Convert scheduled posts to calendar events
+  const scheduledPostEvents: CalendarEvent[] = scheduledPosts.map(post => ({
+    id: `post-${post.id}`,
+    title: post.content.substring(0, 50) + (post.content.length > 50 ? '...' : ''),
+    type: 'post' as const,
+    date: new Date(post.date),
+    time: post.time,
+    description: post.content
+  }));
+
+  const mockEvents: CalendarEvent[] = [
+    ...scheduledPostEvents,
+    {
+      id: 'space-1',
       title: 'Community Space: AMA Session',
       type: 'space',
       date: new Date(2024, 0, 16),
@@ -52,9 +81,9 @@ const CalendarView = () => {
       link: 'https://twitter.com/i/spaces/...'
     },
     {
-      id: '3',
+      id: 'event-1',
       title: 'Partnership Announcement',
-      type: 'post',
+      type: 'event',
       date: new Date(2024, 0, 18),
       time: '13:00'
     }
@@ -148,7 +177,7 @@ const CalendarView = () => {
           </div>
           
           <div className="grid grid-cols-7 gap-1">
-            {days.map((day) => {
+            {eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }).map((day) => {
               const dayEvents = getEventsForDate(day);
               const isCurrentMonth = isSameMonth(day, currentDate);
               const isToday = isSameDay(day, new Date());
