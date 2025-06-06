@@ -119,14 +119,14 @@ const ContentScheduler = () => {
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     className="min-h-[120px] bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
-                    maxLength={280}
+                    maxLength={25000}
                   />
                   <div className="flex justify-between items-center mt-1">
                     <span className="text-xs text-slate-400">
-                      {content.length}/280 characters
+                      {content.length}/25,000 characters (Premium X/Twitter limit)
                     </span>
-                    <Badge variant={content.length > 240 ? "destructive" : "secondary"}>
-                      {280 - content.length} remaining
+                    <Badge variant={content.length > 24000 ? "destructive" : "secondary"}>
+                      {25000 - content.length} remaining
                     </Badge>
                   </div>
                 </div>

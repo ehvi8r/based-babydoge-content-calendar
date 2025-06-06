@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -90,10 +89,10 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
               value={content}
               onChange={(e) => setContent(e.target.value)}
               className="min-h-[120px] bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
-              maxLength={280}
+              maxLength={25000}
             />
             <div className="text-xs text-slate-400 mt-1">
-              {content.length}/280 characters
+              {content.length}/25,000 characters (Premium X/Twitter limit)
             </div>
           </div>
 
