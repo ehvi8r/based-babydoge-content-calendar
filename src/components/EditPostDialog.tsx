@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ interface Post {
   date: string;
   time: string;
   status: string;
+  hashtags?: string;
 }
 
 interface EditPostDialogProps {
@@ -31,6 +33,7 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
   const [content, setContent] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = useState('');
+  const [hashtags, setHashtags] = useState('');
   const { toast } = useToast();
 
   // Update form state when post changes
@@ -39,6 +42,7 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
       setContent(post.content);
       setSelectedDate(new Date(post.date));
       setSelectedTime(post.time);
+      setHashtags(post.hashtags || '');
     }
   }, [post]);
 
@@ -57,6 +61,7 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
       content,
       date: format(selectedDate, 'yyyy-MM-dd'),
       time: selectedTime,
+      hashtags,
     };
 
     onSave(updatedPost);
@@ -94,6 +99,17 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
             <div className="text-xs text-slate-400 mt-1">
               {content.length}/25,000 characters (Premium X/Twitter limit)
             </div>
+          </div>
+
+          <div>
+            <Label htmlFor="edit-hashtags" className="text-blue-200">Hashtags</Label>
+            <Input
+              id="edit-hashtags"
+              placeholder="#BabyDoge #Crypto #Base #DeFi"
+              value={hashtags}
+              onChange={(e) => setHashtags(e.target.value)}
+              className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

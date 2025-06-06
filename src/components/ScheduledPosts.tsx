@@ -12,6 +12,7 @@ interface Post {
   date: string;
   time: string;
   status: string;
+  hashtags?: string;
 }
 
 const ScheduledPosts = () => {
@@ -21,21 +22,24 @@ const ScheduledPosts = () => {
       content: 'Exciting news! BabyDoge is making waves in the DeFi space...',
       date: '2024-01-15',
       time: '09:00',
-      status: 'scheduled'
+      status: 'scheduled',
+      hashtags: '#BabyDoge #DeFi #Crypto'
     },
     {
       id: '2',
       content: 'Community update: Our latest partnership announcement...',
       date: '2024-01-15',
       time: '13:00',
-      status: 'scheduled'
+      status: 'scheduled',
+      hashtags: '#BabyDoge #Partnership #Announcement'
     },
     {
       id: '3',
       content: 'Weekly market analysis and BabyDoge performance...',
       date: '2024-01-15',
       time: '19:00',
-      status: 'scheduled'
+      status: 'scheduled',
+      hashtags: '#BabyDoge #MarketAnalysis #Weekly'
     }
   ]);
 
@@ -103,6 +107,12 @@ const ScheduledPosts = () => {
                 <p className="text-white text-sm line-clamp-2">
                   {post.content}
                 </p>
+                
+                {post.hashtags && (
+                  <p className="text-blue-300 text-xs">
+                    {post.hashtags}
+                  </p>
+                )}
                 
                 <div className="text-xs text-slate-400">
                   {post.date} at {post.time}
