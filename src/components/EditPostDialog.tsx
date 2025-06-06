@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -29,12 +29,19 @@ interface EditPostDialogProps {
 }
 
 const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) => {
-  const [content, setContent] = useState(post?.content || '');
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    post?.date ? new Date(post.date) : undefined
-  );
-  const [selectedTime, setSelectedTime] = useState(post?.time || '');
+  const [content, setContent] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [selectedTime, setSelectedTime] = useState('');
   const { toast } = useToast();
+
+  // Update form state when post changes
+  useEffect(() => {
+    if (post) {
+      setContent(post.content);
+      setSelectedDate(new Date(post.date));
+      setSelectedTime(post.time);
+    }
+  }, [post]);
 
   const handleSave = () => {
     if (!post || !content || !selectedDate || !selectedTime) {
@@ -62,10 +69,6 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
   };
 
   const handleClose = () => {
-    // Reset form when closing
-    setContent(post?.content || '');
-    setSelectedDate(post?.date ? new Date(post.date) : undefined);
-    setSelectedTime(post?.time || '');
     onClose();
   };
 
