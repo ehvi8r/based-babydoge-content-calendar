@@ -50,27 +50,39 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
   });
   const { toast } = useToast();
 
+  console.log('CalendarView received scheduledPosts:', scheduledPosts);
+  console.log('Current events state:', events);
+
   // Convert scheduled posts to calendar events
-  const scheduledPostEvents: CalendarEvent[] = scheduledPosts.map(post => ({
-    id: `post-${post.id}`,
-    title: post.content.substring(0, 50) + (post.content.length > 50 ? '...' : ''),
-    type: 'post' as const,
-    date: new Date(post.date),
-    time: post.time,
-    description: post.content,
-    content: post.content,
-    hashtags: post.hashtags
-  }));
+  const scheduledPostEvents: CalendarEvent[] = scheduledPosts.map(post => {
+    console.log('Processing scheduled post:', post);
+    return {
+      id: `post-${post.id}`,
+      title: post.content.substring(0, 50) + (post.content.length > 50 ? '...' : ''),
+      type: 'post' as const,
+      date: new Date(post.date),
+      time: post.time,
+      description: post.content,
+      content: post.content,
+      hashtags: post.hashtags
+    };
+  });
 
   // Combine scheduled posts with custom events
   const allEvents = [...scheduledPostEvents, ...events];
+  console.log('All events combined:', allEvents);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   const getEventsForDate = (date: Date) => {
-    return allEvents.filter(event => isSameDay(event.date, date));
+    const eventsForDate = allEvents.filter(event => {
+      const eventDate = new Date(event.date);
+      return isSameDay(eventDate, date);
+    });
+    console.log(`Events for ${format(date, 'yyyy-MM-dd')}:`, eventsForDate);
+    return eventsForDate;
   };
 
   const getEventTypeColor = (type: CalendarEvent['type']) => {
@@ -106,6 +118,7 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
 
   const handleEventClick = (event: CalendarEvent, e: React.MouseEvent) => {
     e.stopPropagation();
+    console.log('Event clicked:', event);
     
     if (event.link && (event.type === 'space' || event.type === 'meeting')) {
       window.open(event.link, '_blank');
@@ -144,9 +157,12 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
       link: newEvent.link || undefined
     };
 
-    setEvents([...events, eventToAdd]);
-    
-    console.log('Adding event:', eventToAdd);
+    console.log('Adding new event:', eventToAdd);
+    setEvents(prevEvents => {
+      const updatedEvents = [...prevEvents, eventToAdd];
+      console.log('Updated events array:', updatedEvents);
+      return updatedEvents;
+    });
     
     toast({
       title: "Event Added",
