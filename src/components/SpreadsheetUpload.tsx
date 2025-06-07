@@ -1,8 +1,6 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Upload, Download, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -147,13 +145,22 @@ const SpreadsheetUpload = ({ onPostsImported }: SpreadsheetUploadProps) => {
             <Label htmlFor="spreadsheet-upload" className="text-blue-200">
               Upload CSV File
             </Label>
-            <Input
-              id="spreadsheet-upload"
-              type="file"
-              accept=".csv,.xlsx,.xls"
-              onChange={handleFileChange}
-              className="bg-slate-700 border-slate-600 text-white"
-            />
+            <div className="relative">
+              <input
+                id="spreadsheet-upload"
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={handleFileChange}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+              <Button
+                variant="outline"
+                className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Choose File
+              </Button>
+            </div>
           </div>
         </div>
         
