@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,17 +14,29 @@ import { useToast } from '@/hooks/use-toast';
 interface CalendarEvent {
   id: string;
   title: string;
-  type: 'post' | 'space' | 'event';
+  type: 'post' | 'space' | 'meeting' | 'event';
   date: Date;
   time?: string;
   description?: string;
   link?: string;
 }
 
-const CalendarView = () => {
+interface CalendarViewProps {
+  scheduledPosts?: Array<{
+    id: string;
+    content: string;
+    date: string;
+    time: string;
+    status: string;
+    hashtags?: string;
+  }>;
+}
+
+const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [newEvent, setNewEvent] = useState({
     title: '',
     type: 'event' as CalendarEvent['type'],
@@ -33,31 +45,6 @@ const CalendarView = () => {
     link: ''
   });
   const { toast } = useToast();
-
-  // Mock scheduled posts from ScheduledPosts component
-  const scheduledPosts = [
-    {
-      id: '1',
-      content: 'Exciting news! BabyDoge is making waves in the DeFi space...',
-      date: '2024-01-15',
-      time: '09:00',
-      status: 'scheduled'
-    },
-    {
-      id: '2',
-      content: 'Community update: Our latest partnership announcement...',
-      date: '2024-01-15',
-      time: '13:00',
-      status: 'scheduled'
-    },
-    {
-      id: '3',
-      content: 'Weekly market analysis and BabyDoge performance...',
-      date: '2024-01-15',
-      time: '19:00',
-      status: 'scheduled'
-    }
-  ];
 
   // Convert scheduled posts to calendar events
   const scheduledPostEvents: CalendarEvent[] = scheduledPosts.map(post => ({
@@ -69,40 +56,34 @@ const CalendarView = () => {
     description: post.content
   }));
 
-  const mockEvents: CalendarEvent[] = [
-    ...scheduledPostEvents,
-    {
-      id: 'space-1',
-      title: 'Community Space: AMA Session',
-      type: 'space',
-      date: new Date(2024, 0, 16),
-      time: '20:00',
-      description: 'Weekly AMA with the BabyDoge team',
-      link: 'https://twitter.com/i/spaces/...'
-    },
-    {
-      id: 'event-1',
-      title: 'Partnership Announcement',
-      type: 'event',
-      date: new Date(2024, 0, 18),
-      time: '13:00'
-    }
-  ];
+  // Combine scheduled posts with custom events
+  const allEvents = [...scheduledPostEvents, ...events];
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   const getEventsForDate = (date: Date) => {
-    return mockEvents.filter(event => isSameDay(event.date, date));
+    return allEvents.filter(event => isSameDay(event.date, date));
   };
 
   const getEventTypeColor = (type: CalendarEvent['type']) => {
     switch (type) {
       case 'post': return 'bg-blue-500';
       case 'space': return 'bg-purple-500';
+      case 'meeting': return 'bg-orange-500';
       case 'event': return 'bg-green-500';
       default: return 'bg-gray-500';
+    }
+  };
+
+  const getEventTypeIcon = (type: CalendarEvent['type']) => {
+    switch (type) {
+      case 'post': return <Clock size={12} />;
+      case 'space': return <Users size={12} />;
+      case 'meeting': return <Users size={12} />;
+      case 'event': return <Calendar size={12} />;
+      default: return <Calendar size={12} />;
     }
   };
 
@@ -116,7 +97,19 @@ const CalendarView = () => {
       return;
     }
 
-    console.log('Adding event:', { ...newEvent, date: selectedDate });
+    const eventToAdd: CalendarEvent = {
+      id: Date.now().toString(),
+      title: newEvent.title,
+      type: newEvent.type,
+      date: selectedDate,
+      time: newEvent.time || undefined,
+      description: newEvent.description || undefined,
+      link: newEvent.link || undefined
+    };
+
+    setEvents([...events, eventToAdd]);
+    
+    console.log('Adding event:', eventToAdd);
     
     toast({
       title: "Event Added",
@@ -131,6 +124,7 @@ const CalendarView = () => {
       link: ''
     });
     setIsAddEventOpen(false);
+    setSelectedDate(null);
   };
 
   return (
@@ -142,6 +136,16 @@ const CalendarView = () => {
         </h2>
         
         <div className="flex gap-2">
+          <Button
+            onClick={() => {
+              setSelectedDate(new Date());
+              setIsAddEventOpen(true);
+            }}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Plus size={16} className="mr-2" />
+            Add Event
+          </Button>
           <Button
             variant="outline"
             onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))}
@@ -201,12 +205,16 @@ const CalendarView = () => {
                     {dayEvents.slice(0, 3).map((event) => (
                       <div
                         key={event.id}
-                        className={`text-xs p-1 rounded text-white ${getEventTypeColor(event.type)}`}
+                        className={`text-xs p-1 rounded text-white ${getEventTypeColor(event.type)} flex items-center gap-1`}
+                        title={event.description || event.title}
                       >
-                        <div className="font-medium truncate">{event.title}</div>
-                        {event.time && (
-                          <div className="text-xs opacity-80">{event.time}</div>
-                        )}
+                        {getEventTypeIcon(event.type)}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{event.title}</div>
+                          {event.time && (
+                            <div className="text-xs opacity-80">{event.time}</div>
+                          )}
+                        </div>
                       </div>
                     ))}
                     {dayEvents.length > 3 && (
@@ -259,6 +267,7 @@ const CalendarView = () => {
               >
                 <option value="event">General Event</option>
                 <option value="space">Twitter Space</option>
+                <option value="meeting">Meeting</option>
                 <option value="post">Scheduled Post</option>
               </select>
             </div>
@@ -274,15 +283,17 @@ const CalendarView = () => {
               />
             </div>
 
-            {newEvent.type === 'space' && (
+            {(newEvent.type === 'space' || newEvent.type === 'meeting') && (
               <div>
-                <Label htmlFor="event-link" className="text-blue-200">Space Link</Label>
+                <Label htmlFor="event-link" className="text-blue-200">
+                  {newEvent.type === 'space' ? 'Space Link' : 'Meeting Link'}
+                </Label>
                 <Input
                   id="event-link"
                   value={newEvent.link}
                   onChange={(e) => setNewEvent({ ...newEvent, link: e.target.value })}
                   className="bg-slate-700 border-slate-600 text-white"
-                  placeholder="https://twitter.com/i/spaces/..."
+                  placeholder={newEvent.type === 'space' ? 'https://twitter.com/i/spaces/...' : 'https://zoom.us/j/...'}
                 />
               </div>
             )}
@@ -307,7 +318,10 @@ const CalendarView = () => {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => setIsAddEventOpen(false)}
+                onClick={() => {
+                  setIsAddEventOpen(false);
+                  setSelectedDate(null);
+                }}
                 className="border-slate-600 text-slate-300 hover:bg-slate-700"
               >
                 Cancel
@@ -325,20 +339,32 @@ const CalendarView = () => {
         <CardContent>
           <div className="flex flex-wrap gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-500 rounded"></div>
+              <div className="w-4 h-4 bg-blue-500 rounded flex items-center justify-center">
+                <Clock size={8} className="text-white" />
+              </div>
               <span className="text-slate-300">Scheduled Posts</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-purple-500 rounded"></div>
+              <div className="w-4 h-4 bg-purple-500 rounded flex items-center justify-center">
+                <Users size={8} className="text-white" />
+              </div>
               <span className="text-slate-300">Twitter Spaces</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-500 rounded"></div>
+              <div className="w-4 h-4 bg-orange-500 rounded flex items-center justify-center">
+                <Users size={8} className="text-white" />
+              </div>
+              <span className="text-slate-300">Meetings</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-green-500 rounded flex items-center justify-center">
+                <Calendar size={8} className="text-white" />
+              </div>
               <span className="text-slate-300">Events</span>
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Dialog>
     </div>
   );
 };
