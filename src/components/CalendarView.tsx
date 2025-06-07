@@ -7,8 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar, Plus, Users, Clock } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay } from 'date-fns';
+import { Calendar, Plus, Users, Clock, Edit, ExternalLink } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isAfter, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
 interface CalendarEvent {
@@ -19,6 +19,8 @@ interface CalendarEvent {
   time?: string;
   description?: string;
   link?: string;
+  content?: string; // For scheduled posts
+  hashtags?: string; // For scheduled posts
 }
 
 interface CalendarViewProps {
@@ -36,7 +38,9 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [isEditEventOpen, setIsEditEventOpen] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [newEvent, setNewEvent] = useState({
     title: '',
     type: 'event' as CalendarEvent['type'],
@@ -53,7 +57,9 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
     type: 'post' as const,
     date: new Date(post.date),
     time: post.time,
-    description: post.content
+    description: post.content,
+    content: post.content,
+    hashtags: post.hashtags
   }));
 
   // Combine scheduled posts with custom events
@@ -84,6 +90,37 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
       case 'meeting': return <Users size={12} />;
       case 'event': return <Calendar size={12} />;
       default: return <Calendar size={12} />;
+    }
+  };
+
+  const isEventEditable = (event: CalendarEvent) => {
+    if (!event.time) return true; // If no time specified, allow editing
+    
+    const now = new Date();
+    const eventDateTime = new Date(event.date);
+    const [hours, minutes] = event.time.split(':');
+    eventDateTime.setHours(parseInt(hours), parseInt(minutes));
+    
+    return !isAfter(now, eventDateTime);
+  };
+
+  const handleEventClick = (event: CalendarEvent, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (event.link && (event.type === 'space' || event.type === 'meeting')) {
+      window.open(event.link, '_blank');
+      return;
+    }
+    
+    if (isEventEditable(event)) {
+      setEditingEvent(event);
+      setIsEditEventOpen(true);
+    } else {
+      toast({
+        title: "Cannot Edit",
+        description: "This event's scheduled time has already passed",
+        variant: "destructive",
+      });
     }
   };
 
@@ -127,6 +164,46 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
     setSelectedDate(null);
   };
 
+  const handleEditEvent = () => {
+    if (!editingEvent) return;
+
+    if (editingEvent.type === 'post') {
+      // Handle scheduled post editing
+      toast({
+        title: "Scheduled Post",
+        description: "Scheduled post editing should be handled in the scheduled posts section",
+      });
+      setIsEditEventOpen(false);
+      setEditingEvent(null);
+      return;
+    }
+
+    // Update custom events
+    setEvents(events.map(event => 
+      event.id === editingEvent.id ? editingEvent : event
+    ));
+
+    toast({
+      title: "Event Updated",
+      description: `"${editingEvent.title}" has been updated`,
+    });
+
+    setIsEditEventOpen(false);
+    setEditingEvent(null);
+  };
+
+  const navigateMonth = (direction: 'prev' | 'next' | 'today') => {
+    const newDate = new Date(currentDate);
+    if (direction === 'prev') {
+      newDate.setMonth(newDate.getMonth() - 1);
+    } else if (direction === 'next') {
+      newDate.setMonth(newDate.getMonth() + 1);
+    } else {
+      return new Date();
+    }
+    return newDate;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -148,21 +225,21 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
           </Button>
           <Button
             variant="outline"
-            onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))}
+            onClick={() => setCurrentDate(navigateMonth('prev'))}
             className="border-slate-600 text-slate-300 hover:bg-slate-700"
           >
             Previous
           </Button>
           <Button
             variant="outline"
-            onClick={() => setCurrentDate(new Date())}
+            onClick={() => setCurrentDate(navigateMonth('today'))}
             className="border-slate-600 text-slate-300 hover:bg-slate-700"
           >
             Today
           </Button>
           <Button
             variant="outline"
-            onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))}
+            onClick={() => setCurrentDate(navigateMonth('next'))}
             className="border-slate-600 text-slate-300 hover:bg-slate-700"
           >
             Next
@@ -181,7 +258,7 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
           </div>
           
           <div className="grid grid-cols-7 gap-1">
-            {eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }).map((day) => {
+            {days.map((day) => {
               const dayEvents = getEventsForDate(day);
               const isCurrentMonth = isSameMonth(day, currentDate);
               const isToday = isSameDay(day, new Date());
@@ -205,8 +282,9 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
                     {dayEvents.slice(0, 3).map((event) => (
                       <div
                         key={event.id}
-                        className={`text-xs p-1 rounded text-white ${getEventTypeColor(event.type)} flex items-center gap-1`}
+                        className={`text-xs p-1 rounded text-white ${getEventTypeColor(event.type)} flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity`}
                         title={event.description || event.title}
+                        onClick={(e) => handleEventClick(event, e)}
                       >
                         {getEventTypeIcon(event.type)}
                         <div className="flex-1 min-w-0">
@@ -215,6 +293,12 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
                             <div className="text-xs opacity-80">{event.time}</div>
                           )}
                         </div>
+                        {isEventEditable(event) && (
+                          <Edit size={10} className="opacity-60" />
+                        )}
+                        {event.link && (event.type === 'space' || event.type === 'meeting') && (
+                          <ExternalLink size={10} className="opacity-60" />
+                        )}
                       </div>
                     ))}
                     {dayEvents.length > 3 && (
@@ -268,7 +352,6 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
                 <option value="event">General Event</option>
                 <option value="space">Twitter Space</option>
                 <option value="meeting">Meeting</option>
-                <option value="post">Scheduled Post</option>
               </select>
             </div>
 
@@ -331,6 +414,107 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Event Dialog */}
+      <Dialog open={isEditEventOpen} onOpenChange={setIsEditEventOpen}>
+        <DialogContent className="bg-slate-800 border-slate-600">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Edit className="text-blue-400" size={20} />
+              Edit Event
+              {editingEvent && (
+                <Badge variant="secondary" className={`${getEventTypeColor(editingEvent.type)} text-white ml-2`}>
+                  {editingEvent.type}
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {editingEvent && (
+            <div className="space-y-4">
+              {editingEvent.type === 'post' ? (
+                <div className="text-slate-300">
+                  <p className="mb-2"><strong>Content:</strong> {editingEvent.content}</p>
+                  <p className="mb-2"><strong>Hashtags:</strong> {editingEvent.hashtags}</p>
+                  <p className="mb-2"><strong>Date:</strong> {format(editingEvent.date, 'PPP')}</p>
+                  <p className="mb-4"><strong>Time:</strong> {editingEvent.time}</p>
+                  <p className="text-sm text-slate-400">
+                    To edit this scheduled post, please use the "Scheduled Posts" section in the Content Scheduler tab.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <Label htmlFor="edit-event-title" className="text-blue-200">Title</Label>
+                    <Input
+                      id="edit-event-title"
+                      value={editingEvent.title}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, title: e.target.value })}
+                      className="bg-slate-700 border-slate-600 text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-event-time" className="text-blue-200">Time</Label>
+                    <Input
+                      id="edit-event-time"
+                      type="time"
+                      value={editingEvent.time || ''}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, time: e.target.value })}
+                      className="bg-slate-700 border-slate-600 text-white"
+                    />
+                  </div>
+
+                  {(editingEvent.type === 'space' || editingEvent.type === 'meeting') && (
+                    <div>
+                      <Label htmlFor="edit-event-link" className="text-blue-200">
+                        {editingEvent.type === 'space' ? 'Space Link' : 'Meeting Link'}
+                      </Label>
+                      <Input
+                        id="edit-event-link"
+                        value={editingEvent.link || ''}
+                        onChange={(e) => setEditingEvent({ ...editingEvent, link: e.target.value })}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <Label htmlFor="edit-event-description" className="text-blue-200">Description</Label>
+                    <Textarea
+                      id="edit-event-description"
+                      value={editingEvent.description || ''}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, description: e.target.value })}
+                      className="bg-slate-700 border-slate-600 text-white"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-3">
+                {editingEvent.type !== 'post' && (
+                  <Button
+                    onClick={handleEditEvent}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Save Changes
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditEventOpen(false);
+                    setEditingEvent(null);
+                  }}
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  {editingEvent.type === 'post' ? 'Close' : 'Cancel'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Legend */}
       <Card className="bg-slate-800/50 border-blue-500/20">
         <CardHeader>
@@ -362,6 +546,9 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
               </div>
               <span className="text-slate-300">Events</span>
             </div>
+          </div>
+          <div className="mt-2 text-xs text-slate-400">
+            Click on events to edit them (if time hasn't passed). Links open in new tabs.
           </div>
         </CardContent>
       </Card>
