@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar, Plus, Users, Link, Clock } from 'lucide-react';
+import { Calendar, Plus, Users, Clock } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
@@ -364,7 +364,7 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
             </div>
           </div>
         </CardContent>
-      </Dialog>
+      </Card>
     </div>
   );
 };
