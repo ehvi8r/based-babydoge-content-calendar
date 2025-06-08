@@ -1,8 +1,9 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Clock, Edit, Trash2 } from 'lucide-react';
 import EditPostDialog from './EditPostDialog';
 
@@ -15,36 +16,37 @@ interface Post {
   hashtags?: string;
 }
 
-const ScheduledPosts = () => {
-  const [posts, setPosts] = useState<Post[]>([
-    {
-      id: '1',
-      content: 'Exciting news! BabyDoge is making waves in the DeFi space...',
-      date: '2024-01-15',
-      time: '09:00',
-      status: 'scheduled',
-      hashtags: '#BabyDoge #DeFi #Crypto'
-    },
-    {
-      id: '2',
-      content: 'Community update: Our latest partnership announcement...',
-      date: '2024-01-15',
-      time: '13:00',
-      status: 'scheduled',
-      hashtags: '#BabyDoge #Partnership #Announcement'
-    },
-    {
-      id: '3',
-      content: 'Weekly market analysis and BabyDoge performance...',
-      date: '2024-01-15',
-      time: '19:00',
-      status: 'scheduled',
-      hashtags: '#BabyDoge #MarketAnalysis #Weekly'
-    }
-  ]);
+interface ScheduledPostsProps {
+  onPostUpdate?: (posts: Post[]) => void;
+}
 
+const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
+  const [posts, setPosts] = useState<Post[]>([]);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  // Load posts from localStorage on component mount
+  useEffect(() => {
+    const savedPosts = localStorage.getItem('scheduledPosts');
+    if (savedPosts) {
+      try {
+        const parsedPosts = JSON.parse(savedPosts);
+        setPosts(parsedPosts);
+        console.log('Loaded scheduled posts from localStorage:', parsedPosts);
+      } catch (error) {
+        console.error('Error loading scheduled posts:', error);
+      }
+    }
+  }, []);
+
+  // Save posts to localStorage whenever posts change
+  useEffect(() => {
+    if (posts.length > 0) {
+      localStorage.setItem('scheduledPosts', JSON.stringify(posts));
+      console.log('Saved scheduled posts to localStorage:', posts);
+    }
+    onPostUpdate?.(posts);
+  }, [posts, onPostUpdate]);
 
   const handleEditPost = (post: Post) => {
     setEditingPost(post);
@@ -60,8 +62,19 @@ const ScheduledPosts = () => {
   };
 
   const handleDeletePost = (postId: string) => {
-    setPosts(posts.filter(post => post.id !== postId));
+    const updatedPosts = posts.filter(post => post.id !== postId);
+    setPosts(updatedPosts);
+    if (updatedPosts.length === 0) {
+      localStorage.removeItem('scheduledPosts');
+    }
   };
+
+  // Sort posts by date and time (most recent first)
+  const sortedPosts = [...posts].sort((a, b) => {
+    const dateTimeA = new Date(`${a.date}T${a.time}`);
+    const dateTimeB = new Date(`${b.date}T${b.time}`);
+    return dateTimeB.getTime() - dateTimeA.getTime();
+  });
 
   return (
     <>
@@ -69,56 +82,60 @@ const ScheduledPosts = () => {
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Clock className="text-blue-400" size={20} />
-            Scheduled Posts
+            Scheduled Posts ({posts.length})
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent>
           {posts.length === 0 ? (
             <div className="text-center py-6 text-slate-400">
               No scheduled posts yet
             </div>
           ) : (
-            posts.map((post) => (
-              <div key={post.id} className="bg-slate-700/50 rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <Badge variant="secondary" className="bg-blue-600 text-white">
-                    {post.status}
-                  </Badge>
-                  <div className="flex gap-1">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-6 w-6 p-0 text-blue-400 hover:bg-blue-400/20"
-                      onClick={() => handleEditPost(post)}
-                    >
-                      <Edit size={12} />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-6 w-6 p-0 text-red-400 hover:bg-red-400/20"
-                      onClick={() => handleDeletePost(post.id)}
-                    >
-                      <Trash2 size={12} />
-                    </Button>
+            <ScrollArea className="h-96">
+              <div className="space-y-3 pr-4">
+                {sortedPosts.map((post) => (
+                  <div key={post.id} className="bg-slate-700/50 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="secondary" className="bg-blue-600 text-white">
+                        {post.status}
+                      </Badge>
+                      <div className="flex gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 w-6 p-0 text-blue-400 hover:bg-blue-400/20"
+                          onClick={() => handleEditPost(post)}
+                        >
+                          <Edit size={12} />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 w-6 p-0 text-red-400 hover:bg-red-400/20"
+                          onClick={() => handleDeletePost(post.id)}
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <p className="text-white text-sm line-clamp-2">
+                      {post.content}
+                    </p>
+                    
+                    {post.hashtags && (
+                      <p className="text-blue-300 text-xs">
+                        {post.hashtags}
+                      </p>
+                    )}
+                    
+                    <div className="text-xs text-slate-400">
+                      {post.date} at {post.time}
+                    </div>
                   </div>
-                </div>
-                
-                <p className="text-white text-sm line-clamp-2">
-                  {post.content}
-                </p>
-                
-                {post.hashtags && (
-                  <p className="text-blue-300 text-xs">
-                    {post.hashtags}
-                  </p>
-                )}
-                
-                <div className="text-xs text-slate-400">
-                  {post.date} at {post.time}
-                </div>
+                ))}
               </div>
-            ))
+            </ScrollArea>
           )}
         </CardContent>
       </Card>

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,6 +28,15 @@ interface SpreadsheetPost {
   status: string;
 }
 
+interface Post {
+  id: string;
+  content: string;
+  date: string;
+  time: string;
+  status: string;
+  hashtags?: string;
+}
+
 const ContentScheduler = () => {
   const [content, setContent] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>();
@@ -34,6 +44,7 @@ const ContentScheduler = () => {
   const [hashtags, setHashtags] = useState('');
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [importedPosts, setImportedPosts] = useState<SpreadsheetPost[]>([]);
+  const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
   const { toast } = useToast();
 
   const optimalTimes = [
@@ -41,6 +52,19 @@ const ContentScheduler = () => {
     { time: '1:00 PM', engagement: 'Medium', reason: 'Lunch break' },
     { time: '7:00 PM', engagement: 'High', reason: 'Evening social time' }
   ];
+
+  // Load scheduled posts from localStorage on mount
+  useEffect(() => {
+    const savedPosts = localStorage.getItem('scheduledPosts');
+    if (savedPosts) {
+      try {
+        const parsedPosts = JSON.parse(savedPosts);
+        setScheduledPosts(parsedPosts);
+      } catch (error) {
+        console.error('Error loading scheduled posts:', error);
+      }
+    }
+  }, []);
 
   const handlePostsImported = (posts: SpreadsheetPost[]) => {
     setImportedPosts(posts);
@@ -57,17 +81,18 @@ const ContentScheduler = () => {
       return;
     }
 
-    const scheduledPost = {
+    const newPost: Post = {
       id: Date.now().toString(),
       content,
-      date: selectedDate,
+      date: format(selectedDate, 'yyyy-MM-dd'),
       time: selectedTime,
-      hashtags: hashtags.split(' ').filter(tag => tag.startsWith('#')),
-      media: mediaFiles,
+      hashtags,
       status: 'scheduled'
     };
 
-    console.log('Scheduled post:', scheduledPost);
+    const updatedPosts = [...scheduledPosts, newPost];
+    setScheduledPosts(updatedPosts);
+    localStorage.setItem('scheduledPosts', JSON.stringify(updatedPosts));
     
     toast({
       title: "Post Scheduled",
@@ -80,6 +105,55 @@ const ContentScheduler = () => {
     setSelectedTime('');
     setHashtags('');
     setMediaFiles([]);
+  };
+
+  const handleScheduleImportedPost = (importedPost: SpreadsheetPost, index: number) => {
+    const newPost: Post = {
+      id: `imported-${Date.now()}-${index}`,
+      content: importedPost.content,
+      date: importedPost.date,
+      time: importedPost.time,
+      hashtags: importedPost.hashtags,
+      status: 'scheduled'
+    };
+
+    const updatedPosts = [...scheduledPosts, newPost];
+    setScheduledPosts(updatedPosts);
+    localStorage.setItem('scheduledPosts', JSON.stringify(updatedPosts));
+
+    // Remove from imported posts
+    setImportedPosts(prev => prev.filter((_, i) => i !== index));
+
+    toast({
+      title: "Post Scheduled",
+      description: "Imported post has been scheduled successfully",
+    });
+  };
+
+  const handleScheduleAllImported = () => {
+    const newPosts: Post[] = importedPosts.map((importedPost, index) => ({
+      id: `imported-${Date.now()}-${index}`,
+      content: importedPost.content,
+      date: importedPost.date,
+      time: importedPost.time,
+      hashtags: importedPost.hashtags,
+      status: 'scheduled'
+    }));
+
+    const updatedPosts = [...scheduledPosts, ...newPosts];
+    setScheduledPosts(updatedPosts);
+    localStorage.setItem('scheduledPosts', JSON.stringify(updatedPosts));
+
+    toast({
+      title: "All Posts Scheduled",
+      description: `${importedPosts.length} posts have been scheduled successfully`,
+    });
+
+    setImportedPosts([]);
+  };
+
+  const handlePostsUpdate = (posts: Post[]) => {
+    setScheduledPosts(posts);
   };
 
   return (
@@ -222,14 +296,24 @@ const ContentScheduler = () => {
                     {importedPosts.map((post, index) => (
                       <div key={index} className="bg-slate-700/50 rounded-lg p-3">
                         <p className="text-white text-sm mb-2">{post.content}</p>
-                        <div className="flex justify-between items-center text-xs text-slate-400">
+                        <div className="flex justify-between items-center text-xs text-slate-400 mb-2">
                           <span>{post.date} at {post.time}</span>
                           <span>{post.hashtags}</span>
                         </div>
+                        <Button 
+                          size="sm" 
+                          className="bg-blue-600 hover:bg-blue-700"
+                          onClick={() => handleScheduleImportedPost(post, index)}
+                        >
+                          Schedule This Post
+                        </Button>
                       </div>
                     ))}
                   </div>
-                  <Button className="w-full mt-4 bg-green-600 hover:bg-green-700">
+                  <Button 
+                    className="w-full mt-4 bg-green-600 hover:bg-green-700"
+                    onClick={handleScheduleAllImported}
+                  >
                     Schedule All Posts
                   </Button>
                 </CardContent>
@@ -244,7 +328,7 @@ const ContentScheduler = () => {
       {/* Sidebar */}
       <div className="space-y-6">
         <OptimalTimeSuggestions times={optimalTimes} />
-        <ScheduledPosts />
+        <ScheduledPosts onPostUpdate={handlePostsUpdate} />
       </div>
     </div>
   );
