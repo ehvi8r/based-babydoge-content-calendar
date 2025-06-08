@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,17 +50,45 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
   });
   const { toast } = useToast();
 
+  // Load events from localStorage on component mount
+  useEffect(() => {
+    const savedEvents = localStorage.getItem('calendarEvents');
+    if (savedEvents) {
+      try {
+        const parsedEvents = JSON.parse(savedEvents);
+        // Convert date strings back to Date objects
+        const eventsWithDates = parsedEvents.map((event: any) => ({
+          ...event,
+          date: new Date(event.date)
+        }));
+        setEvents(eventsWithDates);
+        console.log('Loaded events from localStorage:', eventsWithDates);
+      } catch (error) {
+        console.error('Error loading events from localStorage:', error);
+      }
+    }
+  }, []);
+
+  // Save events to localStorage whenever events change
+  useEffect(() => {
+    if (events.length > 0) {
+      localStorage.setItem('calendarEvents', JSON.stringify(events));
+      console.log('Saved events to localStorage:', events);
+    }
+  }, [events]);
+
   console.log('CalendarView received scheduledPosts:', scheduledPosts);
   console.log('Current events state:', events);
 
   // Convert scheduled posts to calendar events
   const scheduledPostEvents: CalendarEvent[] = scheduledPosts.map(post => {
     console.log('Processing scheduled post:', post);
+    const postDate = parseISO(post.date + 'T00:00:00'); // Ensure proper date parsing
     return {
       id: `post-${post.id}`,
       title: post.content.substring(0, 50) + (post.content.length > 50 ? '...' : ''),
       type: 'post' as const,
-      date: new Date(post.date),
+      date: postDate,
       time: post.time,
       description: post.content,
       content: post.content,
@@ -79,7 +107,8 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
   const getEventsForDate = (date: Date) => {
     const eventsForDate = allEvents.filter(event => {
       const eventDate = new Date(event.date);
-      return isSameDay(eventDate, date);
+      const isMatch = isSameDay(eventDate, date);
+      return isMatch;
     });
     console.log(`Events for ${format(date, 'yyyy-MM-dd')}:`, eventsForDate);
     return eventsForDate;
@@ -209,15 +238,17 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
   };
 
   const navigateMonth = (direction: 'prev' | 'next' | 'today') => {
-    const newDate = new Date(currentDate);
     if (direction === 'prev') {
+      const newDate = new Date(currentDate);
       newDate.setMonth(newDate.getMonth() - 1);
+      setCurrentDate(newDate);
     } else if (direction === 'next') {
+      const newDate = new Date(currentDate);
       newDate.setMonth(newDate.getMonth() + 1);
+      setCurrentDate(newDate);
     } else {
-      return new Date();
+      setCurrentDate(new Date());
     }
-    return newDate;
   };
 
   return (
@@ -241,21 +272,21 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
           </Button>
           <Button
             variant="outline"
-            onClick={() => setCurrentDate(navigateMonth('prev'))}
+            onClick={() => navigateMonth('prev')}
             className="border-slate-600 text-slate-300 hover:bg-slate-700"
           >
             Previous
           </Button>
           <Button
             variant="outline"
-            onClick={() => setCurrentDate(navigateMonth('today'))}
+            onClick={() => navigateMonth('today')}
             className="border-slate-600 text-slate-300 hover:bg-slate-700"
           >
             Today
           </Button>
           <Button
             variant="outline"
-            onClick={() => setCurrentDate(navigateMonth('next'))}
+            onClick={() => navigateMonth('next')}
             className="border-slate-600 text-slate-300 hover:bg-slate-700"
           >
             Next
@@ -329,6 +360,17 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Debug info */}
+      {allEvents.length === 0 && (
+        <Card className="bg-yellow-600/20 border-yellow-500/20">
+          <CardContent className="p-4">
+            <p className="text-yellow-200">
+              No events found. Scheduled posts: {scheduledPosts.length}, Custom events: {events.length}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Add Event Dialog */}
       <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>

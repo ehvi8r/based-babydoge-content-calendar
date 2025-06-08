@@ -10,12 +10,18 @@ import Header from '@/components/Header';
 const Index = () => {
   const [activeTab, setActiveTab] = useState('scheduler');
 
-  // Mock scheduled posts data - in a real app this would come from a state management solution
+  // Mock scheduled posts data with current dates - in a real app this would come from a state management solution
+  const currentDate = new Date();
+  const tomorrow = new Date(currentDate);
+  tomorrow.setDate(currentDate.getDate() + 1);
+  const dayAfterTomorrow = new Date(currentDate);
+  dayAfterTomorrow.setDate(currentDate.getDate() + 2);
+
   const scheduledPosts = [
     {
       id: '1',
       content: 'Exciting news! BabyDoge is making waves in the DeFi space with our latest partnership announcement. This collaboration will bring new opportunities for our community and expand our reach in the crypto ecosystem. Stay tuned for more updates! 🚀',
-      date: '2024-01-15',
+      date: tomorrow.toISOString().split('T')[0], // Tomorrow's date
       time: '09:00',
       status: 'scheduled',
       hashtags: '#BabyDoge #DeFi #Crypto #Partnership'
@@ -23,7 +29,7 @@ const Index = () => {
     {
       id: '2',
       content: 'Community update: Our latest partnership announcement is generating incredible buzz across the crypto space. The team has been working tirelessly to bring you innovative solutions that will revolutionize how you interact with DeFi protocols.',
-      date: '2024-01-15',
+      date: tomorrow.toISOString().split('T')[0], // Tomorrow's date
       time: '13:00',
       status: 'scheduled',
       hashtags: '#BabyDoge #Partnership #Announcement #Community'
@@ -31,7 +37,7 @@ const Index = () => {
     {
       id: '3',
       content: 'Weekly market analysis and BabyDoge performance review. This week has shown remarkable growth and adoption across multiple metrics. Our trading volume has increased significantly, and the community engagement is at an all-time high.',
-      date: '2024-01-15',
+      date: dayAfterTomorrow.toISOString().split('T')[0], // Day after tomorrow
       time: '19:00',
       status: 'scheduled',
       hashtags: '#BabyDoge #MarketAnalysis #Weekly #Performance'
