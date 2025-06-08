@@ -50,10 +50,11 @@ const ImportedPostsList = ({
 
   const handleEditClick = (post: SpreadsheetPost, index: number) => {
     setEditingPost({ post, index });
-    setEditContent(post.content);
-    setEditHashtags(post.hashtags);
-    setEditDate(post.date);
-    setEditTime(post.time);
+    // Populate form fields with existing data
+    setEditContent(post.content || '');
+    setEditHashtags(post.hashtags || '');
+    setEditDate(post.date || '');
+    setEditTime(post.time || '');
   };
 
   const handleSaveEdit = () => {
@@ -74,6 +75,15 @@ const ImportedPostsList = ({
       title: "Post Updated",
       description: "Imported post has been updated successfully",
     });
+  };
+
+  const handleCloseDialog = () => {
+    setEditingPost(null);
+    // Reset form fields when closing
+    setEditContent('');
+    setEditHashtags('');
+    setEditDate('');
+    setEditTime('');
   };
 
   if (importedPosts.length === 0) {
@@ -125,7 +135,7 @@ const ImportedPostsList = ({
         </CardContent>
       </Card>
 
-      <Dialog open={!!editingPost} onOpenChange={() => setEditingPost(null)}>
+      <Dialog open={!!editingPost} onOpenChange={handleCloseDialog}>
         <DialogContent className="bg-slate-800 border-slate-600 text-white max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-white">Edit Imported Post</DialogTitle>
@@ -184,7 +194,7 @@ const ImportedPostsList = ({
               </Button>
               <Button 
                 variant="outline" 
-                onClick={() => setEditingPost(null)}
+                onClick={handleCloseDialog}
                 className="border-slate-600 text-slate-300 hover:bg-slate-700"
               >
                 Cancel
