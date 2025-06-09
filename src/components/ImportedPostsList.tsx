@@ -55,9 +55,23 @@ const ImportedPostsList = ({
   const [editImagePreview, setEditImagePreview] = useState('');
   const { toast } = useToast();
 
+  // Helper function to save image to localStorage
+  const saveImageToStorage = (file: File): string => {
+    const reader = new FileReader();
+    const imageId = `image_${Date.now()}_${Math.random()}`;
+    
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        localStorage.setItem(imageId, e.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+    
+    return imageId;
+  };
+
   const handleEditClick = (post: SpreadsheetPost, index: number) => {
     setEditingPost({ post, index });
-    // Populate form fields with existing data
     setEditContent(post.content || '');
     setEditHashtags(post.hashtags || '');
     setEditDate(post.date || '');
@@ -68,9 +82,9 @@ const ImportedPostsList = ({
   };
 
   const isValidFutureDateTime = (date: string, time: string): boolean => {
-    const scheduledDateTime = new Date(`${date}T${time}`);
     const now = new Date();
-    return scheduledDateTime > now;
+    const selectedDateTime = new Date(`${date}T${time}`);
+    return selectedDateTime > now;
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,7 +99,7 @@ const ImportedPostsList = ({
         return;
       }
       
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      if (file.size > 10 * 1024 * 1024) {
         toast({
           title: "File too large",
           description: "Please upload images smaller than 10MB",
@@ -97,7 +111,7 @@ const ImportedPostsList = ({
       setEditImageFile(file);
       const previewUrl = URL.createObjectURL(file);
       setEditImagePreview(previewUrl);
-      setEditImageUrl(''); // Clear URL input when file is selected
+      setEditImageUrl('');
     }
   };
 
@@ -113,7 +127,6 @@ const ImportedPostsList = ({
   const handleSaveEdit = () => {
     if (!editingPost) return;
 
-    // Validate that the scheduled date/time is in the future
     if (!isValidFutureDateTime(editDate, editTime)) {
       toast({
         title: "Invalid Date/Time",
@@ -123,8 +136,13 @@ const ImportedPostsList = ({
       return;
     }
 
-    // Use uploaded image if available, otherwise use URL
-    const finalImageUrl = editImageFile ? editImagePreview : editImageUrl;
+    let finalImageUrl = editImageUrl;
+    
+    // If there's a file, save it to localStorage and use the stored version
+    if (editImageFile) {
+      const imageId = saveImageToStorage(editImageFile);
+      finalImageUrl = imageId;
+    }
 
     const updatedPost: SpreadsheetPost = {
       content: editContent,
@@ -146,7 +164,6 @@ const ImportedPostsList = ({
 
   const handleCloseDialog = () => {
     setEditingPost(null);
-    // Clean up blob URLs and reset form fields
     if (editImagePreview.startsWith('blob:')) {
       URL.revokeObjectURL(editImagePreview);
     }
@@ -163,7 +180,6 @@ const ImportedPostsList = ({
     onDeletePost(index);
   };
 
-  // Get today's date in YYYY-MM-DD format for the min date
   const today = new Date().toISOString().split('T')[0];
 
   if (importedPosts.length === 0) {
@@ -184,7 +200,7 @@ const ImportedPostsList = ({
                 {post.imageUrl && (
                   <div className="mb-2">
                     <img 
-                      src={post.imageUrl} 
+                      src={post.imageUrl.startsWith('image_') ? localStorage.getItem(post.imageUrl) || post.imageUrl : post.imageUrl} 
                       alt="Post image" 
                       className="w-16 h-16 object-cover rounded"
                       onError={(e) => {
@@ -266,13 +282,12 @@ const ImportedPostsList = ({
             <div>
               <Label className="text-blue-200">Image</Label>
               <div className="space-y-3">
-                {/* Desktop Image Upload */}
                 <div className="flex gap-3 items-center">
                   <Label htmlFor="edit-image-upload" className="cursor-pointer">
-                    <div className="flex items-center justify-center p-3 border-2 border-dashed border-orange-500/50 rounded-lg hover:border-orange-400 transition-colors bg-orange-500/10 hover:bg-orange-500/20">
+                    <div className="flex items-center justify-center p-3 border-2 border-dashed border-orange-500/70 rounded-lg hover:border-orange-400 transition-colors bg-orange-500/20 hover:bg-orange-500/30">
                       <div className="text-center">
-                        <Upload className="mx-auto h-5 w-5 text-orange-400 mb-1" />
-                        <span className="text-xs text-orange-300 font-medium">Choose Image</span>
+                        <Upload className="mx-auto h-5 w-5 text-orange-300 mb-1" />
+                        <span className="text-xs text-orange-200 font-medium">Choose Image</span>
                       </div>
                     </div>
                   </Label>
@@ -303,14 +318,12 @@ const ImportedPostsList = ({
                   )}
                 </div>
 
-                {/* OR separator */}
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-px bg-slate-600"></div>
                   <span className="text-xs text-slate-400">OR</span>
                   <div className="flex-1 h-px bg-slate-600"></div>
                 </div>
 
-                {/* Image URL Input */}
                 <div>
                   <Label htmlFor="edit-image-url" className="text-blue-200">Image URL</Label>
                   <Input

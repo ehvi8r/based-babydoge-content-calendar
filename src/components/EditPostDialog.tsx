@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, Upload, Image as ImageIcon, X } from 'lucide-react';
+import { CalendarIcon, Upload, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -39,21 +39,46 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
   const [imagePreviewUrl, setImagePreviewUrl] = useState('');
   const { toast } = useToast();
 
-  // Update form state when post changes
+  // Helper function to save image to localStorage
+  const saveImageToStorage = (file: File): string => {
+    const reader = new FileReader();
+    const imageId = `image_${Date.now()}_${Math.random()}`;
+    
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        localStorage.setItem(imageId, e.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+    
+    return imageId;
+  };
+
   useEffect(() => {
     if (post) {
       setContent(post.content);
       setSelectedDate(new Date(post.date));
       setSelectedTime(post.time);
       setHashtags(post.hashtags || '');
-      setImagePreviewUrl(post.imageUrl || '');
+      
+      // Handle image loading from localStorage if it's an ID
+      if (post.imageUrl) {
+        if (post.imageUrl.startsWith('image_')) {
+          const storedImage = localStorage.getItem(post.imageUrl);
+          setImagePreviewUrl(storedImage || post.imageUrl);
+        } else {
+          setImagePreviewUrl(post.imageUrl);
+        }
+      } else {
+        setImagePreviewUrl('');
+      }
       setImageFile(null);
     }
   }, [post]);
 
   const isValidFutureDateTime = (date: Date, time: string): boolean => {
-    const scheduledDateTime = new Date(`${format(date, 'yyyy-MM-dd')}T${time}`);
     const now = new Date();
+    const scheduledDateTime = new Date(`${format(date, 'yyyy-MM-dd')}T${time}`);
     return scheduledDateTime > now;
   };
 
@@ -69,7 +94,7 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
         return;
       }
       
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      if (file.size > 10 * 1024 * 1024) {
         toast({
           title: "File too large",
           description: "Please upload images smaller than 10MB",
@@ -102,7 +127,6 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
       return;
     }
 
-    // Validate that the scheduled date/time is in the future
     if (!isValidFutureDateTime(selectedDate, selectedTime)) {
       toast({
         title: "Invalid Date/Time",
@@ -112,13 +136,21 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
       return;
     }
 
+    let finalImageUrl = imagePreviewUrl;
+    
+    // If there's a new file, save it to localStorage
+    if (imageFile) {
+      const imageId = saveImageToStorage(imageFile);
+      finalImageUrl = imageId;
+    }
+
     const updatedPost = {
       ...post,
       content,
       date: format(selectedDate, 'yyyy-MM-dd'),
       time: selectedTime,
       hashtags,
-      imageUrl: imagePreviewUrl,
+      imageUrl: finalImageUrl,
     };
 
     onSave(updatedPost);
@@ -130,7 +162,6 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
   };
 
   const handleClose = () => {
-    // Clean up blob URLs
     if (imagePreviewUrl.startsWith('blob:')) {
       URL.revokeObjectURL(imagePreviewUrl);
     }
