@@ -70,10 +70,10 @@ const MediaUpload = ({ onMediaChange }: MediaUploadProps) => {
       
       <div className="grid grid-cols-2 gap-2">
         <Label htmlFor="media-upload" className="cursor-pointer">
-          <div className="flex items-center justify-center p-4 border-2 border-dashed border-slate-600 rounded-lg hover:border-blue-500 transition-colors">
+          <div className="flex items-center justify-center p-4 border-2 border-dashed border-orange-500/50 rounded-lg hover:border-orange-400 transition-colors bg-orange-500/10 hover:bg-orange-500/20">
             <div className="text-center">
-              <Upload className="mx-auto h-6 w-6 text-slate-400 mb-2" />
-              <span className="text-sm text-slate-400">Upload Media</span>
+              <Upload className="mx-auto h-6 w-6 text-orange-400 mb-2" />
+              <span className="text-sm text-orange-300 font-medium">Choose Files</span>
             </div>
           </div>
         </Label>

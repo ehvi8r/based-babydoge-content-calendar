@@ -22,6 +22,7 @@ interface Post {
   time: string;
   status: string;
   hashtags?: string;
+  imageUrl?: string;
 }
 
 interface SinglePostFormProps {
@@ -63,12 +64,19 @@ const SinglePostForm = ({ scheduledPosts, onPostScheduled }: SinglePostFormProps
       return;
     }
 
+    // Convert first media file to image URL if available
+    let imageUrl = '';
+    if (mediaFiles.length > 0 && mediaFiles[0].type.startsWith('image/')) {
+      imageUrl = URL.createObjectURL(mediaFiles[0]);
+    }
+
     const newPost: Post = {
       id: Date.now().toString(),
       content,
       date: format(selectedDate, 'yyyy-MM-dd'),
       time: selectedTime,
       hashtags,
+      imageUrl,
       status: 'scheduled'
     };
 
@@ -154,7 +162,7 @@ const SinglePostForm = ({ scheduledPosts, onPostScheduled }: SinglePostFormProps
                   onSelect={setSelectedDate}
                   initialFocus
                   className="pointer-events-auto"
-                  disabled={(date) => date < new Date() || date > new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)}
+                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0)) || date > new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)}
                 />
               </PopoverContent>
             </Popover>

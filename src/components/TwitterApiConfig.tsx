@@ -27,13 +27,23 @@ const TwitterApiConfig = () => {
   const [isConfigured, setIsConfigured] = useState(false);
   const { toast } = useToast();
 
-  // Load saved credentials on component mount
+  // Load saved credentials on component mount and auto-configure
   useEffect(() => {
     const savedCredentials = localStorage.getItem('twitter-api-credentials');
     if (savedCredentials) {
-      const parsed = JSON.parse(savedCredentials);
-      setCredentials(parsed);
-      setIsConfigured(true);
+      try {
+        const parsed = JSON.parse(savedCredentials);
+        setCredentials(parsed);
+        // Auto-configure if all required fields are present
+        const requiredFields = ['apiKey', 'apiSecret', 'accessToken', 'accessTokenSecret'];
+        const hasAllFields = requiredFields.every(field => parsed[field as keyof TwitterApiCredentials]);
+        if (hasAllFields) {
+          setIsConfigured(true);
+          console.log('Twitter API credentials auto-loaded from storage');
+        }
+      } catch (error) {
+        console.error('Error loading saved API credentials:', error);
+      }
     }
   }, []);
 
@@ -58,7 +68,7 @@ const TwitterApiConfig = () => {
     
     toast({
       title: "API Credentials Saved",
-      description: "Your X/Twitter API credentials have been saved successfully",
+      description: "Your X/Twitter API credentials have been saved and will auto-load on app startup",
     });
   };
 
@@ -122,6 +132,10 @@ const TwitterApiConfig = () => {
             >
               X Developer Portal
             </a>
+            <br />
+            <span className="text-xs text-green-400 mt-1 block">
+              ✓ Credentials auto-save and load on app startup
+            </span>
           </div>
 
           <div>
