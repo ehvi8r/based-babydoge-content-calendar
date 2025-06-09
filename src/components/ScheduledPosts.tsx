@@ -14,6 +14,7 @@ interface Post {
   time: string;
   status: string;
   hashtags?: string;
+  imageUrl?: string;
 }
 
 interface ScheduledPostsProps {
@@ -41,12 +42,29 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
 
   // Save posts to localStorage whenever posts change
   useEffect(() => {
-    if (posts.length > 0) {
+    if (posts.length >= 0) {
       localStorage.setItem('scheduledPosts', JSON.stringify(posts));
       console.log('Saved scheduled posts to localStorage:', posts);
     }
     onPostUpdate?.(posts);
   }, [posts, onPostUpdate]);
+
+  // Listen for external updates to scheduled posts
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'scheduledPosts' && e.newValue) {
+        try {
+          const updatedPosts = JSON.parse(e.newValue);
+          setPosts(updatedPosts);
+        } catch (error) {
+          console.error('Error parsing updated scheduled posts:', error);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const handleEditPost = (post: Post) => {
     setEditingPost(post);
@@ -122,6 +140,19 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
                     <p className="text-white text-sm line-clamp-2">
                       {post.content}
                     </p>
+
+                    {post.imageUrl && (
+                      <div className="mt-2">
+                        <img 
+                          src={post.imageUrl} 
+                          alt="Post image" 
+                          className="w-16 h-16 object-cover rounded"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
                     
                     {post.hashtags && (
                       <p className="text-blue-300 text-xs">

@@ -37,11 +37,27 @@ const SinglePostForm = ({ scheduledPosts, onPostScheduled }: SinglePostFormProps
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const { toast } = useToast();
 
+  const isValidFutureDate = (date: Date, time: string): boolean => {
+    const scheduledDateTime = new Date(`${format(date, 'yyyy-MM-dd')}T${time}`);
+    const now = new Date();
+    return scheduledDateTime > now;
+  };
+
   const handleSchedulePost = () => {
     if (!content || !selectedDate || !selectedTime) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate that the scheduled date/time is in the future
+    if (!isValidFutureDate(selectedDate, selectedTime)) {
+      toast({
+        title: "Invalid Date",
+        description: "Cannot schedule posts in the past. Please select a future date and time.",
         variant: "destructive",
       });
       return;

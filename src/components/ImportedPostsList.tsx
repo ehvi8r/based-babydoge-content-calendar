@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Edit } from 'lucide-react';
+import { Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface SpreadsheetPost {
@@ -15,6 +15,7 @@ interface SpreadsheetPost {
   time: string;
   hashtags: string;
   status: string;
+  imageUrl: string;
 }
 
 interface Post {
@@ -24,6 +25,7 @@ interface Post {
   time: string;
   status: string;
   hashtags?: string;
+  imageUrl?: string;
 }
 
 interface ImportedPostsListProps {
@@ -32,6 +34,7 @@ interface ImportedPostsListProps {
   onSchedulePost: (post: SpreadsheetPost, index: number) => void;
   onScheduleAll: () => void;
   onEditPost: (post: SpreadsheetPost, index: number) => void;
+  onDeletePost: (index: number) => void;
 }
 
 const ImportedPostsList = ({ 
@@ -39,13 +42,15 @@ const ImportedPostsList = ({
   scheduledPosts, 
   onSchedulePost, 
   onScheduleAll, 
-  onEditPost 
+  onEditPost,
+  onDeletePost 
 }: ImportedPostsListProps) => {
   const [editingPost, setEditingPost] = useState<{ post: SpreadsheetPost; index: number } | null>(null);
   const [editContent, setEditContent] = useState('');
   const [editHashtags, setEditHashtags] = useState('');
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
+  const [editImageUrl, setEditImageUrl] = useState('');
   const { toast } = useToast();
 
   const handleEditClick = (post: SpreadsheetPost, index: number) => {
@@ -55,16 +60,34 @@ const ImportedPostsList = ({
     setEditHashtags(post.hashtags || '');
     setEditDate(post.date || '');
     setEditTime(post.time || '');
+    setEditImageUrl(post.imageUrl || '');
+  };
+
+  const isValidFutureDate = (date: string, time: string): boolean => {
+    const scheduledDateTime = new Date(`${date}T${time}`);
+    const now = new Date();
+    return scheduledDateTime > now;
   };
 
   const handleSaveEdit = () => {
     if (!editingPost) return;
+
+    // Validate that the scheduled date/time is in the future if they're trying to schedule
+    if (!isValidFutureDate(editDate, editTime)) {
+      toast({
+        title: "Invalid Date",
+        description: "Please select a future date and time",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const updatedPost: SpreadsheetPost = {
       content: editContent,
       hashtags: editHashtags,
       date: editDate,
       time: editTime,
+      imageUrl: editImageUrl,
       status: 'imported'
     };
 
@@ -84,6 +107,11 @@ const ImportedPostsList = ({
     setEditHashtags('');
     setEditDate('');
     setEditTime('');
+    setEditImageUrl('');
+  };
+
+  const handleDeleteClick = (index: number) => {
+    onDeletePost(index);
   };
 
   if (importedPosts.length === 0) {
@@ -101,6 +129,18 @@ const ImportedPostsList = ({
             {importedPosts.map((post, index) => (
               <div key={index} className="bg-slate-700/50 rounded-lg p-3">
                 <p className="text-white text-sm mb-2">{post.content}</p>
+                {post.imageUrl && (
+                  <div className="mb-2">
+                    <img 
+                      src={post.imageUrl} 
+                      alt="Post image" 
+                      className="w-16 h-16 object-cover rounded"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
                 <div className="flex justify-between items-center text-xs text-slate-400 mb-2">
                   <span>{post.date} at {post.time}</span>
                   <span>{post.hashtags}</span>
@@ -114,6 +154,15 @@ const ImportedPostsList = ({
                   >
                     <Edit size={12} className="mr-1" />
                     Edit
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="border-red-500 text-red-400 hover:bg-red-500/20"
+                    onClick={() => handleDeleteClick(index)}
+                  >
+                    <Trash2 size={12} className="mr-1" />
+                    Delete
                   </Button>
                   <Button 
                     size="sm" 
@@ -161,6 +210,29 @@ const ImportedPostsList = ({
                 className="bg-slate-700 border-slate-600 text-white"
               />
             </div>
+
+            <div>
+              <Label htmlFor="edit-image-url" className="text-blue-200">Image URL</Label>
+              <Input
+                id="edit-image-url"
+                value={editImageUrl}
+                onChange={(e) => setEditImageUrl(e.target.value)}
+                placeholder="https://example.com/image.jpg"
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+              {editImageUrl && (
+                <div className="mt-2">
+                  <img 
+                    src={editImageUrl} 
+                    alt="Preview" 
+                    className="w-20 h-20 object-cover rounded"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
+            </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -171,6 +243,7 @@ const ImportedPostsList = ({
                   value={editDate}
                   onChange={(e) => setEditDate(e.target.value)}
                   className="bg-slate-700 border-slate-600 text-white"
+                  min={new Date().toISOString().split('T')[0]}
                 />
               </div>
               <div>

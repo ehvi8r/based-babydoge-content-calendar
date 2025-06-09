@@ -20,6 +20,7 @@ interface Post {
   time: string;
   status: string;
   hashtags?: string;
+  imageUrl?: string;
 }
 
 interface EditPostDialogProps {
@@ -34,6 +35,7 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = useState('');
   const [hashtags, setHashtags] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const { toast } = useToast();
 
   // Update form state when post changes
@@ -43,8 +45,15 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
       setSelectedDate(new Date(post.date));
       setSelectedTime(post.time);
       setHashtags(post.hashtags || '');
+      setImageUrl(post.imageUrl || '');
     }
   }, [post]);
+
+  const isValidFutureDate = (date: Date, time: string): boolean => {
+    const scheduledDateTime = new Date(`${format(date, 'yyyy-MM-dd')}T${time}`);
+    const now = new Date();
+    return scheduledDateTime > now;
+  };
 
   const handleSave = () => {
     if (!post || !content || !selectedDate || !selectedTime) {
@@ -56,12 +65,23 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
       return;
     }
 
+    // Validate that the scheduled date/time is in the future
+    if (!isValidFutureDate(selectedDate, selectedTime)) {
+      toast({
+        title: "Invalid Date",
+        description: "Cannot schedule posts in the past. Please select a future date and time.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const updatedPost = {
       ...post,
       content,
       date: format(selectedDate, 'yyyy-MM-dd'),
       time: selectedTime,
       hashtags,
+      imageUrl,
     };
 
     onSave(updatedPost);
@@ -110,6 +130,29 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
               onChange={(e) => setHashtags(e.target.value)}
               className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
             />
+          </div>
+
+          <div>
+            <Label htmlFor="edit-image-url" className="text-blue-200">Image URL</Label>
+            <Input
+              id="edit-image-url"
+              placeholder="https://example.com/image.jpg"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+            />
+            {imageUrl && (
+              <div className="mt-2">
+                <img 
+                  src={imageUrl} 
+                  alt="Preview" 
+                  className="w-20 h-20 object-cover rounded"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import SpreadsheetUpload from './SpreadsheetUpload';
 import ImportedPostsList from './ImportedPostsList';
@@ -10,6 +9,7 @@ interface SpreadsheetPost {
   time: string;
   hashtags: string;
   status: string;
+  imageUrl: string;
 }
 
 interface Post {
@@ -19,6 +19,7 @@ interface Post {
   time: string;
   status: string;
   hashtags?: string;
+  imageUrl?: string;
 }
 
 interface BulkImportTabProps {
@@ -57,13 +58,30 @@ const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) =>
     console.log('Imported posts:', posts);
   };
 
+  const isValidFutureDate = (date: string, time: string): boolean => {
+    const scheduledDateTime = new Date(`${date}T${time}`);
+    const now = new Date();
+    return scheduledDateTime > now;
+  };
+
   const handleScheduleImportedPost = (importedPost: SpreadsheetPost, index: number) => {
+    // Validate that the scheduled date/time is in the future
+    if (!isValidFutureDate(importedPost.date, importedPost.time)) {
+      toast({
+        title: "Invalid Date",
+        description: "Cannot schedule posts in the past. Please edit the date and time.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const newPost: Post = {
       id: `imported-${Date.now()}-${index}`,
       content: importedPost.content,
       date: importedPost.date,
       time: importedPost.time,
       hashtags: importedPost.hashtags,
+      imageUrl: importedPost.imageUrl,
       status: 'scheduled'
     };
 
@@ -82,12 +100,30 @@ const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) =>
   };
 
   const handleScheduleAllImported = () => {
-    const newPosts: Post[] = importedPosts.map((importedPost, index) => ({
+    // Filter out posts with past dates
+    const validPosts = importedPosts.filter(post => 
+      isValidFutureDate(post.date, post.time)
+    );
+    
+    const invalidPosts = importedPosts.filter(post => 
+      !isValidFutureDate(post.date, post.time)
+    );
+
+    if (invalidPosts.length > 0) {
+      toast({
+        title: "Some Posts Skipped",
+        description: `${invalidPosts.length} posts were skipped because they have past dates`,
+        variant: "destructive",
+      });
+    }
+
+    const newPosts: Post[] = validPosts.map((importedPost, index) => ({
       id: `imported-${Date.now()}-${index}`,
       content: importedPost.content,
       date: importedPost.date,
       time: importedPost.time,
       hashtags: importedPost.hashtags,
+      imageUrl: importedPost.imageUrl,
       status: 'scheduled'
     }));
 
@@ -96,11 +132,12 @@ const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) =>
     localStorage.setItem('scheduledPosts', JSON.stringify(updatedPosts));
 
     toast({
-      title: "All Posts Scheduled",
-      description: `${importedPosts.length} posts have been scheduled successfully`,
+      title: "Posts Scheduled",
+      description: `${validPosts.length} posts have been scheduled successfully`,
     });
 
-    setImportedPosts([]);
+    // Keep only the invalid posts in imported posts
+    setImportedPosts(invalidPosts);
   };
 
   const handleEditImportedPost = (updatedPost: SpreadsheetPost, index: number) => {
@@ -108,6 +145,16 @@ const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) =>
       i === index ? updatedPost : post
     );
     setImportedPosts(updatedImportedPosts);
+  };
+
+  const handleDeleteImportedPost = (index: number) => {
+    const updatedImportedPosts = importedPosts.filter((_, i) => i !== index);
+    setImportedPosts(updatedImportedPosts);
+    
+    toast({
+      title: "Post Deleted",
+      description: "Imported post has been deleted",
+    });
   };
 
   return (
@@ -120,6 +167,7 @@ const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) =>
         onSchedulePost={handleScheduleImportedPost}
         onScheduleAll={handleScheduleAllImported}
         onEditPost={handleEditImportedPost}
+        onDeletePost={handleDeleteImportedPost}
       />
     </>
   );

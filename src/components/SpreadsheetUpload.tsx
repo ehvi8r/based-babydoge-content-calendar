@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ interface SpreadsheetPost {
   time: string;
   hashtags: string;
   status: string;
+  imageUrl: string;
 }
 
 interface SpreadsheetUploadProps {
@@ -23,13 +25,13 @@ const SpreadsheetUpload = ({ onPostsImported }: SpreadsheetUploadProps) => {
   const { toast } = useToast();
 
   const downloadTemplate = () => {
-    // Create CSV content for the template
-    const csvContent = `Content,Date,Time,Hashtags,Status
-"Exciting news! BabyDoge is making waves in the DeFi space with our latest partnerships and community growth!","2024-01-16","09:00","#BabyDoge #Crypto #DeFi #Base","scheduled"
-"Community update: Thank you to all our holders for making BabyDoge one of the fastest growing tokens on Base!","2024-01-16","13:00","#BabyDoge #Community #Base #Crypto","scheduled"
-"Weekly market analysis: BabyDoge continues to show strong fundamentals and growing adoption across the ecosystem.","2024-01-16","19:00","#BabyDoge #MarketUpdate #Analysis #Crypto","scheduled"
-"Join us for our upcoming Twitter Space tonight at 8 PM EST! We'll be discussing the future of BabyDoge and answering community questions.","2024-01-17","15:00","#BabyDoge #TwitterSpace #Community #AMA","scheduled"
-"🚀 New listing announcement coming soon! Stay tuned for major updates from the BabyDoge team.","2024-01-17","11:00","#BabyDoge #Listing #Announcement #Crypto","scheduled"`;
+    // Create CSV content for the template with image URL column
+    const csvContent = `Content,Date,Time,Hashtags,Status,ImageUrl
+"Exciting news! BabyDoge is making waves in the DeFi space with our latest partnerships and community growth!","2024-01-16","09:00","#BabyDoge #Crypto #DeFi #Base","scheduled","https://babydoge20.com/assets/images/BABYlogo.png"
+"Community update: Thank you to all our holders for making BabyDoge one of the fastest growing tokens on Base!","2024-01-16","13:00","#BabyDoge #Community #Base #Crypto","scheduled",""
+"Weekly market analysis: BabyDoge continues to show strong fundamentals and growing adoption across the ecosystem.","2024-01-16","19:00","#BabyDoge #MarketUpdate #Analysis #Crypto","scheduled","https://babydoge20.com/assets/images/BABYlogo.png"
+"Join us for our upcoming Twitter Space tonight at 8 PM EST! We'll be discussing the future of BabyDoge and answering community questions.","2024-01-17","15:00","#BabyDoge #TwitterSpace #Community #AMA","scheduled",""
+"🚀 New listing announcement coming soon! Stay tuned for major updates from the BabyDoge team.","2024-01-17","11:00","#BabyDoge #Listing #Announcement #Crypto","scheduled","https://babydoge20.com/assets/images/BABYlogo.png"`;
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -94,7 +96,8 @@ const SpreadsheetUpload = ({ onPostsImported }: SpreadsheetUploadProps) => {
             date: values[1].replace(/"/g, ''),
             time: values[2].replace(/"/g, ''),
             hashtags: values[3].replace(/"/g, ''),
-            status: values[4].replace(/"/g, '') || 'scheduled'
+            status: values[4].replace(/"/g, '') || 'scheduled',
+            imageUrl: values[5] ? values[5].replace(/"/g, '') : ''
           });
         }
       }
@@ -179,7 +182,7 @@ const SpreadsheetUpload = ({ onPostsImported }: SpreadsheetUploadProps) => {
         )}
         
         <div className="text-xs text-slate-400">
-          <p>Expected columns: Content, Date (YYYY-MM-DD), Time (HH:MM), Hashtags, Status</p>
+          <p>Expected columns: Content, Date (YYYY-MM-DD), Time (HH:MM), Hashtags, Status, ImageUrl</p>
           <p>Supports CSV files. Download the template to see the correct format.</p>
         </div>
       </CardContent>
