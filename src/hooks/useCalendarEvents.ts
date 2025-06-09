@@ -28,34 +28,47 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const { toast } = useToast();
 
-  // Load events from localStorage on component mount
+  // Load events from localStorage on component mount and listen for updates
   useEffect(() => {
-    const savedEvents = localStorage.getItem('calendarEvents');
-    if (savedEvents) {
-      try {
-        const parsedEvents = JSON.parse(savedEvents);
-        const eventsWithDates = parsedEvents.map((event: any) => ({
-          ...event,
-          date: new Date(event.date)
-        }));
-        setEvents(eventsWithDates);
-        console.log('Loaded events from localStorage:', eventsWithDates);
-      } catch (error) {
-        console.error('Error loading events from localStorage:', error);
+    const loadEvents = () => {
+      const savedEvents = localStorage.getItem('calendarEvents');
+      if (savedEvents) {
+        try {
+          const parsedEvents = JSON.parse(savedEvents);
+          const eventsWithDates = parsedEvents.map((event: any) => ({
+            ...event,
+            date: new Date(event.date)
+          }));
+          setEvents(eventsWithDates);
+          console.log('Loaded calendar events from localStorage:', eventsWithDates);
+        } catch (error) {
+          console.error('Error loading events from localStorage:', error);
+        }
       }
-    }
+    };
+
+    loadEvents();
+
+    // Listen for calendar events updates
+    const handleCalendarEventsUpdate = () => {
+      loadEvents();
+    };
+
+    window.addEventListener('calendarEventsUpdated', handleCalendarEventsUpdate);
+    
+    return () => {
+      window.removeEventListener('calendarEventsUpdated', handleCalendarEventsUpdate);
+    };
   }, []);
 
   // Save events to localStorage whenever events change
   useEffect(() => {
-    if (events.length >= 0) {
-      localStorage.setItem('calendarEvents', JSON.stringify(events));
-      console.log('Saved events to localStorage:', events);
-    }
+    localStorage.setItem('calendarEvents', JSON.stringify(events));
+    console.log('Saved calendar events to localStorage:', events);
   }, [events]);
 
   const scheduledPostEvents: CalendarEvent[] = scheduledPosts.map(post => {
-    console.log('Processing scheduled post:', post);
+    console.log('Processing scheduled post for calendar:', post);
     const postDate = parseISO(post.date + 'T00:00:00');
     return {
       id: `post-${post.id}`,
@@ -77,12 +90,15 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
       ...newEvent
     };
 
-    console.log('Adding new event:', eventToAdd);
+    console.log('Adding new calendar event:', eventToAdd);
     setEvents(prevEvents => {
       const updatedEvents = [...prevEvents, eventToAdd];
-      console.log('Updated events array:', updatedEvents);
+      console.log('Updated calendar events array:', updatedEvents);
       return updatedEvents;
     });
+    
+    // Dispatch event to notify other components
+    window.dispatchEvent(new CustomEvent('calendarEventsUpdated'));
     
     toast({
       title: "Event Added",
@@ -131,6 +147,9 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
         event.id === updatedEvent.id ? updatedEvent : event
       ));
 
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent('calendarEventsUpdated'));
+
       toast({
         title: "Event Updated",
         description: `"${updatedEvent.title}" has been updated`,
@@ -172,6 +191,9 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
     } else {
       // For regular events
       setEvents(events.filter(event => event.id !== eventToDelete.id));
+      
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent('calendarEventsUpdated'));
       
       toast({
         title: "Event Deleted",

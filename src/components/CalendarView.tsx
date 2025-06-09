@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar, Plus } from 'lucide-react';
@@ -31,6 +31,27 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
 
   console.log('CalendarView received scheduledPosts:', scheduledPosts);
   console.log('All events combined:', allEvents);
+
+  // Listen for updates to scheduled posts
+  useEffect(() => {
+    const handlePostsUpdate = () => {
+      console.log('Calendar received posts update event');
+      // The useCalendarEvents hook will automatically update when scheduledPosts prop changes
+    };
+
+    const handleCalendarEventsUpdate = () => {
+      console.log('Calendar received calendar events update event');
+      // This will trigger a re-render and show updated events
+    };
+
+    window.addEventListener('scheduledPostsUpdated', handlePostsUpdate);
+    window.addEventListener('calendarEventsUpdated', handleCalendarEventsUpdate);
+    
+    return () => {
+      window.removeEventListener('scheduledPostsUpdated', handlePostsUpdate);
+      window.removeEventListener('calendarEventsUpdated', handleCalendarEventsUpdate);
+    };
+  }, []);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);

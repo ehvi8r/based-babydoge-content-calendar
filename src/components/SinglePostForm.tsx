@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,6 +82,9 @@ const SinglePostForm = ({ scheduledPosts, onPostScheduled }: SinglePostFormProps
     const updatedPosts = [...scheduledPosts, newPost];
     onPostScheduled(updatedPosts);
     localStorage.setItem('scheduledPosts', JSON.stringify(updatedPosts));
+    
+    // Dispatch event to notify other components
+    window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
     
     toast({
       title: "Post Scheduled",

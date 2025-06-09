@@ -48,10 +48,8 @@ const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) =>
 
   // Save imported posts to localStorage whenever they change
   useEffect(() => {
-    if (importedPosts.length >= 0) {
-      localStorage.setItem('importedPosts', JSON.stringify(importedPosts));
-      console.log('Saved imported posts to localStorage:', importedPosts);
-    }
+    localStorage.setItem('importedPosts', JSON.stringify(importedPosts));
+    console.log('Saved imported posts to localStorage:', importedPosts);
   }, [importedPosts]);
 
   const handlePostsImported = (posts: SpreadsheetPost[]) => {
@@ -94,6 +92,9 @@ const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) =>
     const updatedImportedPosts = importedPosts.filter((_, i) => i !== index);
     setImportedPosts(updatedImportedPosts);
 
+    // Dispatch event to notify other components
+    window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
+
     toast({
       title: "Post Scheduled",
       description: "Imported post has been scheduled successfully",
@@ -131,6 +132,9 @@ const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) =>
     const updatedPosts = [...scheduledPosts, ...newPosts];
     onPostsUpdate(updatedPosts);
     localStorage.setItem('scheduledPosts', JSON.stringify(updatedPosts));
+
+    // Dispatch event to notify other components
+    window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
 
     toast({
       title: "Posts Scheduled",
