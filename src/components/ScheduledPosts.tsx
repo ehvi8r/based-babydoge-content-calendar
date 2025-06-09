@@ -1,11 +1,11 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Clock, Edit, Trash2 } from 'lucide-react';
+import { Clock, Edit, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 import EditPostDialog from './EditPostDialog';
+import { postScheduler } from '@/services/postScheduler';
 
 interface Post {
   id: string;
@@ -15,6 +15,7 @@ interface Post {
   status: string;
   hashtags?: string;
   imageUrl?: string;
+  error?: string;
 }
 
 interface ScheduledPostsProps {
@@ -44,6 +45,14 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
     };
 
     loadPosts();
+
+    // Start the post scheduler service
+    postScheduler.start();
+
+    return () => {
+      // Clean up on unmount
+      postScheduler.stop();
+    };
   }, []);
 
   // Save posts to localStorage whenever posts change and notify parent
@@ -119,6 +128,32 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
     window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
   };
 
+  const handleRetryPost = async (postId: string) => {
+    await postScheduler.retryFailedPost(postId);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'scheduled':
+        return 'bg-blue-600';
+      case 'publishing':
+        return 'bg-yellow-600';
+      case 'published':
+        return 'bg-green-600';
+      case 'failed':
+        return 'bg-red-600';
+      default:
+        return 'bg-blue-600';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    if (status === 'publishing') {
+      return <Loader2 className="animate-spin" size={12} />;
+    }
+    return null;
+  };
+
   // Sort posts by date and time (most recent first)
   const sortedPosts = [...posts].sort((a, b) => {
     const dateTimeA = new Date(`${a.date}T${a.time}`);
@@ -146,18 +181,33 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
                 {sortedPosts.map((post) => (
                   <div key={post.id} className="bg-slate-700/50 rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <Badge variant="secondary" className="bg-blue-600 text-white">
-                        {post.status}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(post.status)}
+                        <Badge variant="secondary" className={`${getStatusColor(post.status)} text-white`}>
+                          {post.status}
+                        </Badge>
+                      </div>
                       <div className="flex gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-6 w-6 p-0 text-blue-400 hover:bg-blue-400/20"
-                          onClick={() => handleEditPost(post)}
-                        >
-                          <Edit size={12} />
-                        </Button>
+                        {post.status === 'failed' && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 w-6 p-0 text-blue-400 hover:bg-blue-400/20"
+                            onClick={() => handleRetryPost(post.id)}
+                          >
+                            <RefreshCw size={12} />
+                          </Button>
+                        )}
+                        {(post.status === 'scheduled' || post.status === 'failed') && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 w-6 p-0 text-blue-400 hover:bg-blue-400/20"
+                            onClick={() => handleEditPost(post)}
+                          >
+                            <Edit size={12} />
+                          </Button>
+                        )}
                         <Button 
                           variant="ghost" 
                           size="sm" 
@@ -189,6 +239,12 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
                     {post.hashtags && (
                       <p className="text-blue-300 text-xs">
                         {post.hashtags}
+                      </p>
+                    )}
+
+                    {post.error && (
+                      <p className="text-red-300 text-xs bg-red-900/20 p-2 rounded">
+                        Error: {post.error}
                       </p>
                     )}
                     

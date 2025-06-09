@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SinglePostForm from './SinglePostForm';
@@ -6,6 +5,7 @@ import BulkImportTab from './BulkImportTab';
 import OptimalTimeSuggestions from './OptimalTimeSuggestions';
 import ContentPreview from './ContentPreview';
 import ScheduledPosts from './ScheduledPosts';
+import PublishedPostsHistory from './PublishedPostsHistory';
 
 interface Post {
   id: string;
@@ -102,6 +102,7 @@ const ContentScheduler = () => {
       <div className="space-y-6">
         <OptimalTimeSuggestions times={optimalTimes} />
         <ScheduledPosts onPostUpdate={handlePostsUpdate} />
+        <PublishedPostsHistory />
       </div>
     </div>
   );
