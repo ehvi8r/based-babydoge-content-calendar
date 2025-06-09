@@ -63,7 +63,7 @@ const ImportedPostsList = ({
     setEditImageUrl(post.imageUrl || '');
   };
 
-  const isValidFutureDate = (date: string, time: string): boolean => {
+  const isValidFutureDateTime = (date: string, time: string): boolean => {
     const scheduledDateTime = new Date(`${date}T${time}`);
     const now = new Date();
     return scheduledDateTime > now;
@@ -72,10 +72,10 @@ const ImportedPostsList = ({
   const handleSaveEdit = () => {
     if (!editingPost) return;
 
-    // Validate that the scheduled date/time is in the future if they're trying to schedule
-    if (!isValidFutureDate(editDate, editTime)) {
+    // Validate that the scheduled date/time is in the future
+    if (!isValidFutureDateTime(editDate, editTime)) {
       toast({
-        title: "Invalid Date",
+        title: "Invalid Date/Time",
         description: "Please select a future date and time",
         variant: "destructive",
       });
@@ -113,6 +113,9 @@ const ImportedPostsList = ({
   const handleDeleteClick = (index: number) => {
     onDeletePost(index);
   };
+
+  // Get today's date in YYYY-MM-DD format for the min date
+  const today = new Date().toISOString().split('T')[0];
 
   if (importedPosts.length === 0) {
     return null;
@@ -243,7 +246,7 @@ const ImportedPostsList = ({
                   value={editDate}
                   onChange={(e) => setEditDate(e.target.value)}
                   className="bg-slate-700 border-slate-600 text-white"
-                  min={new Date().toISOString().split('T')[0]}
+                  min={today}
                 />
               </div>
               <div>

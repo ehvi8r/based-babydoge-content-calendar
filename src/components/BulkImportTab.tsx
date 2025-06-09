@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import SpreadsheetUpload from './SpreadsheetUpload';
 import ImportedPostsList from './ImportedPostsList';
@@ -58,7 +59,7 @@ const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) =>
     console.log('Imported posts:', posts);
   };
 
-  const isValidFutureDate = (date: string, time: string): boolean => {
+  const isValidFutureDateTime = (date: string, time: string): boolean => {
     const scheduledDateTime = new Date(`${date}T${time}`);
     const now = new Date();
     return scheduledDateTime > now;
@@ -66,10 +67,10 @@ const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) =>
 
   const handleScheduleImportedPost = (importedPost: SpreadsheetPost, index: number) => {
     // Validate that the scheduled date/time is in the future
-    if (!isValidFutureDate(importedPost.date, importedPost.time)) {
+    if (!isValidFutureDateTime(importedPost.date, importedPost.time)) {
       toast({
-        title: "Invalid Date",
-        description: "Cannot schedule posts in the past. Please edit the date and time.",
+        title: "Invalid Date/Time",
+        description: "Cannot schedule posts in the past. Please select a future date and time.",
         variant: "destructive",
       });
       return;
@@ -100,19 +101,19 @@ const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) =>
   };
 
   const handleScheduleAllImported = () => {
-    // Filter out posts with past dates
+    // Filter out posts with past dates/times
     const validPosts = importedPosts.filter(post => 
-      isValidFutureDate(post.date, post.time)
+      isValidFutureDateTime(post.date, post.time)
     );
     
     const invalidPosts = importedPosts.filter(post => 
-      !isValidFutureDate(post.date, post.time)
+      !isValidFutureDateTime(post.date, post.time)
     );
 
     if (invalidPosts.length > 0) {
       toast({
         title: "Some Posts Skipped",
-        description: `${invalidPosts.length} posts were skipped because they have past dates`,
+        description: `${invalidPosts.length} posts were skipped because they have past dates/times`,
         variant: "destructive",
       });
     }

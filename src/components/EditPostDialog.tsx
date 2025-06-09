@@ -49,7 +49,7 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
     }
   }, [post]);
 
-  const isValidFutureDate = (date: Date, time: string): boolean => {
+  const isValidFutureDateTime = (date: Date, time: string): boolean => {
     const scheduledDateTime = new Date(`${format(date, 'yyyy-MM-dd')}T${time}`);
     const now = new Date();
     return scheduledDateTime > now;
@@ -66,9 +66,9 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
     }
 
     // Validate that the scheduled date/time is in the future
-    if (!isValidFutureDate(selectedDate, selectedTime)) {
+    if (!isValidFutureDateTime(selectedDate, selectedTime)) {
       toast({
-        title: "Invalid Date",
+        title: "Invalid Date/Time",
         description: "Cannot schedule posts in the past. Please select a future date and time.",
         variant: "destructive",
       });
