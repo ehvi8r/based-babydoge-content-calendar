@@ -28,25 +28,31 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
 
   // Load posts from localStorage on component mount
   useEffect(() => {
-    const savedPosts = localStorage.getItem('scheduledPosts');
-    if (savedPosts) {
-      try {
-        const parsedPosts = JSON.parse(savedPosts);
-        setPosts(parsedPosts);
-        console.log('Loaded scheduled posts from localStorage:', parsedPosts);
-      } catch (error) {
-        console.error('Error loading scheduled posts:', error);
+    const loadPosts = () => {
+      const savedPosts = localStorage.getItem('scheduledPosts');
+      if (savedPosts) {
+        try {
+          const parsedPosts = JSON.parse(savedPosts);
+          setPosts(parsedPosts);
+          console.log('Loaded scheduled posts from localStorage:', parsedPosts);
+        } catch (error) {
+          console.error('Error loading scheduled posts:', error);
+        }
+      } else {
+        setPosts([]);
       }
-    }
+    };
+
+    loadPosts();
   }, []);
 
-  // Save posts to localStorage whenever posts change
+  // Save posts to localStorage whenever posts change and notify parent
   useEffect(() => {
     if (posts.length >= 0) {
       localStorage.setItem('scheduledPosts', JSON.stringify(posts));
       console.log('Saved scheduled posts to localStorage:', posts);
+      onPostUpdate?.(posts);
     }
-    onPostUpdate?.(posts);
   }, [posts, onPostUpdate]);
 
   // Listen for external updates to scheduled posts
@@ -62,8 +68,28 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
       }
     };
 
+    const handlePostsUpdate = () => {
+      const savedPosts = localStorage.getItem('scheduledPosts');
+      if (savedPosts) {
+        try {
+          const parsedPosts = JSON.parse(savedPosts);
+          setPosts(parsedPosts);
+          console.log('Posts updated via custom event:', parsedPosts);
+        } catch (error) {
+          console.error('Error loading updated scheduled posts:', error);
+        }
+      } else {
+        setPosts([]);
+      }
+    };
+
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('scheduledPostsUpdated', handlePostsUpdate);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('scheduledPostsUpdated', handlePostsUpdate);
+    };
   }, []);
 
   const handleEditPost = (post: Post) => {
@@ -77,6 +103,9 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
     ));
     setEditingPost(null);
     setIsEditDialogOpen(false);
+    
+    // Dispatch event to notify other components
+    window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
   };
 
   const handleDeletePost = (postId: string) => {
@@ -85,6 +114,9 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
     if (updatedPosts.length === 0) {
       localStorage.removeItem('scheduledPosts');
     }
+    
+    // Dispatch event to notify other components
+    window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
   };
 
   // Sort posts by date and time (most recent first)

@@ -27,15 +27,31 @@ const ContentScheduler = () => {
 
   // Load scheduled posts from localStorage on mount
   useEffect(() => {
-    const savedPosts = localStorage.getItem('scheduledPosts');
-    if (savedPosts) {
-      try {
-        const parsedPosts = JSON.parse(savedPosts);
-        setScheduledPosts(parsedPosts);
-      } catch (error) {
-        console.error('Error loading scheduled posts:', error);
+    const loadPosts = () => {
+      const savedPosts = localStorage.getItem('scheduledPosts');
+      if (savedPosts) {
+        try {
+          const parsedPosts = JSON.parse(savedPosts);
+          setScheduledPosts(parsedPosts);
+          console.log('ContentScheduler loaded posts:', parsedPosts);
+        } catch (error) {
+          console.error('Error loading scheduled posts:', error);
+        }
       }
-    }
+    };
+
+    loadPosts();
+
+    // Listen for updates from other components
+    const handlePostsUpdate = () => {
+      loadPosts();
+    };
+
+    window.addEventListener('scheduledPostsUpdated', handlePostsUpdate);
+    
+    return () => {
+      window.removeEventListener('scheduledPostsUpdated', handlePostsUpdate);
+    };
   }, []);
 
   const handlePostsUpdate = (posts: Post[]) => {
