@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -202,23 +201,50 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
     if (!editingEvent) return;
 
     if (editingEvent.type === 'post') {
+      // For scheduled posts, update in localStorage and dispatch event
+      const savedPosts = localStorage.getItem('scheduledPosts');
+      if (savedPosts) {
+        try {
+          const posts = JSON.parse(savedPosts);
+          const postId = editingEvent.id.replace('post-', '');
+          const updatedPosts = posts.map((post: any) => {
+            if (post.id === postId) {
+              return {
+                ...post,
+                content: editingEvent.description || editingEvent.content || post.content,
+                hashtags: editingEvent.hashtags || post.hashtags
+              };
+            }
+            return post;
+          });
+          
+          localStorage.setItem('scheduledPosts', JSON.stringify(updatedPosts));
+          window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
+          
+          toast({
+            title: "Scheduled Post Updated",
+            description: "The scheduled post has been updated successfully",
+          });
+        } catch (error) {
+          console.error('Error updating scheduled post:', error);
+          toast({
+            title: "Error",
+            description: "Failed to update the scheduled post",
+            variant: "destructive",
+          });
+        }
+      }
+    } else {
+      // For regular events
+      setEvents(events.map(event => 
+        event.id === editingEvent.id ? editingEvent : event
+      ));
+
       toast({
-        title: "Scheduled Post",
-        description: "To edit scheduled posts, please use the Content Scheduler tab",
+        title: "Event Updated",
+        description: `"${editingEvent.title}" has been updated`,
       });
-      setIsEditEventOpen(false);
-      setEditingEvent(null);
-      return;
     }
-
-    setEvents(events.map(event => 
-      event.id === editingEvent.id ? editingEvent : event
-    ));
-
-    toast({
-      title: "Event Updated",
-      description: `"${editingEvent.title}" has been updated`,
-    });
 
     setIsEditEventOpen(false);
     setEditingEvent(null);
@@ -228,20 +254,44 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
     if (!editingEvent) return;
 
     if (editingEvent.type === 'post') {
+      // For scheduled posts, remove from localStorage and dispatch event
+      const savedPosts = localStorage.getItem('scheduledPosts');
+      if (savedPosts) {
+        try {
+          const posts = JSON.parse(savedPosts);
+          const postId = editingEvent.id.replace('post-', '');
+          const updatedPosts = posts.filter((post: any) => post.id !== postId);
+          
+          if (updatedPosts.length === 0) {
+            localStorage.removeItem('scheduledPosts');
+          } else {
+            localStorage.setItem('scheduledPosts', JSON.stringify(updatedPosts));
+          }
+          
+          window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
+          
+          toast({
+            title: "Scheduled Post Deleted",
+            description: "The scheduled post has been deleted successfully",
+          });
+        } catch (error) {
+          console.error('Error deleting scheduled post:', error);
+          toast({
+            title: "Error",
+            description: "Failed to delete the scheduled post",
+            variant: "destructive",
+          });
+        }
+      }
+    } else {
+      // For regular events
+      setEvents(events.filter(event => event.id !== editingEvent.id));
+      
       toast({
-        title: "Cannot Delete",
-        description: "To delete scheduled posts, please use the Content Scheduler tab",
-        variant: "destructive",
+        title: "Event Deleted",
+        description: `"${editingEvent.title}" has been deleted`,
       });
-      return;
     }
-
-    setEvents(events.filter(event => event.id !== editingEvent.id));
-    
-    toast({
-      title: "Event Deleted",
-      description: `"${editingEvent.title}" has been deleted`,
-    });
 
     setIsEditEventOpen(false);
     setEditingEvent(null);
@@ -475,7 +525,7 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
               <Edit className="text-blue-400" size={20} />
-              {editingEvent?.type === 'post' ? 'View Scheduled Post' : 'Edit Event'}
+              Edit {editingEvent?.type === 'post' ? 'Scheduled Post' : 'Event'}
               {editingEvent && (
                 <Badge variant="secondary" className={`${getEventTypeColor(editingEvent.type)} text-white ml-2`}>
                   {editingEvent.type}
@@ -487,14 +537,29 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
           {editingEvent && (
             <div className="space-y-4">
               {editingEvent.type === 'post' ? (
-                <div className="text-slate-300">
-                  <p className="mb-2"><strong>Content:</strong> {editingEvent.content}</p>
-                  <p className="mb-2"><strong>Hashtags:</strong> {editingEvent.hashtags}</p>
-                  <p className="mb-2"><strong>Date:</strong> {format(editingEvent.date, 'PPP')}</p>
-                  <p className="mb-4"><strong>Time:</strong> {editingEvent.time}</p>
-                  <p className="text-sm text-slate-400">
-                    To edit this scheduled post, please use the "Scheduled Posts" section in the Content Scheduler tab.
-                  </p>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="edit-post-content" className="text-blue-200">Content</Label>
+                    <Textarea
+                      id="edit-post-content"
+                      value={editingEvent.description || editingEvent.content || ''}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, description: e.target.value, content: e.target.value })}
+                      className="bg-slate-700 border-slate-600 text-white min-h-[100px]"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-post-hashtags" className="text-blue-200">Hashtags</Label>
+                    <Input
+                      id="edit-post-hashtags"
+                      value={editingEvent.hashtags || ''}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, hashtags: e.target.value })}
+                      className="bg-slate-700 border-slate-600 text-white"
+                    />
+                  </div>
+                  <div className="text-sm text-slate-400">
+                    <p><strong>Date:</strong> {format(editingEvent.date, 'PPP')}</p>
+                    <p><strong>Time:</strong> {editingEvent.time}</p>
+                  </div>
                 </div>
               ) : (
                 <>
@@ -546,7 +611,7 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
               )}
 
               <div className="flex gap-3">
-                {editingEvent.type !== 'post' && isEventEditable(editingEvent) && (
+                {isEventEditable(editingEvent) && (
                   <>
                     <Button
                       onClick={handleEditEvent}
@@ -572,7 +637,7 @@ const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
                   }}
                   className="border-slate-600 text-slate-300 hover:bg-slate-700"
                 >
-                  {editingEvent.type === 'post' || !isEventEditable(editingEvent) ? 'Close' : 'Cancel'}
+                  {!isEventEditable(editingEvent) ? 'Close' : 'Cancel'}
                 </Button>
               </div>
             </div>

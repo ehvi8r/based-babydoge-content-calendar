@@ -40,6 +40,8 @@ const ContentScheduler = () => {
 
   const handlePostsUpdate = (posts: Post[]) => {
     setScheduledPosts(posts);
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
   };
 
   return (

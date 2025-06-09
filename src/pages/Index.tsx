@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, PlusCircle, Clock, BarChart3 } from 'lucide-react';
 import ContentScheduler from '@/components/ContentScheduler';
@@ -7,42 +7,67 @@ import CalendarView from '@/components/CalendarView';
 import Analytics from '@/components/Analytics';
 import Header from '@/components/Header';
 
+interface Post {
+  id: string;
+  content: string;
+  date: string;
+  time: string;
+  status: string;
+  hashtags?: string;
+  imageUrl?: string;
+}
+
 const Index = () => {
   const [activeTab, setActiveTab] = useState('scheduler');
+  const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
 
-  // Mock scheduled posts data with current dates - in a real app this would come from a state management solution
-  const currentDate = new Date();
-  const tomorrow = new Date(currentDate);
-  tomorrow.setDate(currentDate.getDate() + 1);
-  const dayAfterTomorrow = new Date(currentDate);
-  dayAfterTomorrow.setDate(currentDate.getDate() + 2);
-
-  const scheduledPosts = [
-    {
-      id: '1',
-      content: 'Exciting news! BabyDoge is making waves in the DeFi space with our latest partnership announcement. This collaboration will bring new opportunities for our community and expand our reach in the crypto ecosystem. Stay tuned for more updates! 🚀',
-      date: tomorrow.toISOString().split('T')[0], // Tomorrow's date
-      time: '09:00',
-      status: 'scheduled',
-      hashtags: '#BabyDoge #DeFi #Crypto #Partnership'
-    },
-    {
-      id: '2',
-      content: 'Community update: Our latest partnership announcement is generating incredible buzz across the crypto space. The team has been working tirelessly to bring you innovative solutions that will revolutionize how you interact with DeFi protocols.',
-      date: tomorrow.toISOString().split('T')[0], // Tomorrow's date
-      time: '13:00',
-      status: 'scheduled',
-      hashtags: '#BabyDoge #Partnership #Announcement #Community'
-    },
-    {
-      id: '3',
-      content: 'Weekly market analysis and BabyDoge performance review. This week has shown remarkable growth and adoption across multiple metrics. Our trading volume has increased significantly, and the community engagement is at an all-time high.',
-      date: dayAfterTomorrow.toISOString().split('T')[0], // Day after tomorrow
-      time: '19:00',
-      status: 'scheduled',
-      hashtags: '#BabyDoge #MarketAnalysis #Weekly #Performance'
+  // Load scheduled posts from localStorage on mount
+  useEffect(() => {
+    const savedPosts = localStorage.getItem('scheduledPosts');
+    if (savedPosts) {
+      try {
+        const parsedPosts = JSON.parse(savedPosts);
+        setScheduledPosts(parsedPosts);
+      } catch (error) {
+        console.error('Error loading scheduled posts:', error);
+      }
     }
-  ];
+  }, []);
+
+  // Listen for changes to scheduled posts in localStorage
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'scheduledPosts' && e.newValue) {
+        try {
+          const updatedPosts = JSON.parse(e.newValue);
+          setScheduledPosts(updatedPosts);
+        } catch (error) {
+          console.error('Error parsing updated scheduled posts:', error);
+        }
+      }
+    };
+
+    // Also listen for custom events (for same-tab updates)
+    const handlePostsUpdate = () => {
+      const savedPosts = localStorage.getItem('scheduledPosts');
+      if (savedPosts) {
+        try {
+          const parsedPosts = JSON.parse(savedPosts);
+          setScheduledPosts(parsedPosts);
+        } catch (error) {
+          console.error('Error loading updated scheduled posts:', error);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('scheduledPostsUpdated', handlePostsUpdate);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('scheduledPostsUpdated', handlePostsUpdate);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
