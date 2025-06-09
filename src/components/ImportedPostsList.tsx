@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2, Upload, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface SpreadsheetPost {
@@ -51,6 +51,8 @@ const ImportedPostsList = ({
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
   const [editImageUrl, setEditImageUrl] = useState('');
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState('');
   const { toast } = useToast();
 
   const handleEditClick = (post: SpreadsheetPost, index: number) => {
@@ -61,12 +63,51 @@ const ImportedPostsList = ({
     setEditDate(post.date || '');
     setEditTime(post.time || '');
     setEditImageUrl(post.imageUrl || '');
+    setEditImageFile(null);
+    setEditImagePreview(post.imageUrl || '');
   };
 
   const isValidFutureDateTime = (date: string, time: string): boolean => {
     const scheduledDateTime = new Date(`${date}T${time}`);
     const now = new Date();
     return scheduledDateTime > now;
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload only image files",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        toast({
+          title: "File too large",
+          description: "Please upload images smaller than 10MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setEditImageFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setEditImagePreview(previewUrl);
+      setEditImageUrl(''); // Clear URL input when file is selected
+    }
+  };
+
+  const removeImage = () => {
+    setEditImageFile(null);
+    setEditImageUrl('');
+    if (editImagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(editImagePreview);
+    }
+    setEditImagePreview('');
   };
 
   const handleSaveEdit = () => {
@@ -82,12 +123,15 @@ const ImportedPostsList = ({
       return;
     }
 
+    // Use uploaded image if available, otherwise use URL
+    const finalImageUrl = editImageFile ? editImagePreview : editImageUrl;
+
     const updatedPost: SpreadsheetPost = {
       content: editContent,
       hashtags: editHashtags,
       date: editDate,
       time: editTime,
-      imageUrl: editImageUrl,
+      imageUrl: finalImageUrl,
       status: 'imported'
     };
 
@@ -102,12 +146,17 @@ const ImportedPostsList = ({
 
   const handleCloseDialog = () => {
     setEditingPost(null);
-    // Reset form fields when closing
+    // Clean up blob URLs and reset form fields
+    if (editImagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(editImagePreview);
+    }
     setEditContent('');
     setEditHashtags('');
     setEditDate('');
     setEditTime('');
     setEditImageUrl('');
+    setEditImageFile(null);
+    setEditImagePreview('');
   };
 
   const handleDeleteClick = (index: number) => {
@@ -215,26 +264,73 @@ const ImportedPostsList = ({
             </div>
 
             <div>
-              <Label htmlFor="edit-image-url" className="text-blue-200">Image URL</Label>
-              <Input
-                id="edit-image-url"
-                value={editImageUrl}
-                onChange={(e) => setEditImageUrl(e.target.value)}
-                placeholder="https://example.com/image.jpg"
-                className="bg-slate-700 border-slate-600 text-white"
-              />
-              {editImageUrl && (
-                <div className="mt-2">
-                  <img 
-                    src={editImageUrl} 
-                    alt="Preview" 
-                    className="w-20 h-20 object-cover rounded"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
+              <Label className="text-blue-200">Image</Label>
+              <div className="space-y-3">
+                {/* Desktop Image Upload */}
+                <div className="flex gap-3 items-center">
+                  <Label htmlFor="edit-image-upload" className="cursor-pointer">
+                    <div className="flex items-center justify-center p-3 border-2 border-dashed border-orange-500/50 rounded-lg hover:border-orange-400 transition-colors bg-orange-500/10 hover:bg-orange-500/20">
+                      <div className="text-center">
+                        <Upload className="mx-auto h-5 w-5 text-orange-400 mb-1" />
+                        <span className="text-xs text-orange-300 font-medium">Choose Image</span>
+                      </div>
+                    </div>
+                  </Label>
+                  <Input
+                    id="edit-image-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  
+                  {editImagePreview && (
+                    <div className="relative">
+                      <img 
+                        src={editImagePreview} 
+                        alt="Preview" 
+                        className="w-16 h-16 object-cover rounded border border-slate-600"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={removeImage}
+                        className="absolute -top-2 -right-2 h-6 w-6 p-0 bg-red-500 hover:bg-red-600 text-white rounded-full"
+                      >
+                        <X size={12} />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* OR separator */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-slate-600"></div>
+                  <span className="text-xs text-slate-400">OR</span>
+                  <div className="flex-1 h-px bg-slate-600"></div>
+                </div>
+
+                {/* Image URL Input */}
+                <div>
+                  <Label htmlFor="edit-image-url" className="text-blue-200">Image URL</Label>
+                  <Input
+                    id="edit-image-url"
+                    value={editImageUrl}
+                    onChange={(e) => {
+                      setEditImageUrl(e.target.value);
+                      setEditImagePreview(e.target.value);
+                      if (editImageFile) {
+                        setEditImageFile(null);
+                        if (editImagePreview.startsWith('blob:')) {
+                          URL.revokeObjectURL(editImagePreview);
+                        }
+                      }
                     }}
+                    placeholder="https://example.com/image.jpg"
+                    className="bg-slate-700 border-slate-600 text-white"
                   />
                 </div>
-              )}
+              </div>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
