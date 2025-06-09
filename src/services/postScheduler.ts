@@ -1,6 +1,5 @@
 
 import { twitterApi } from './twitterApi';
-import { useToast } from '@/hooks/use-toast';
 
 interface ScheduledPost {
   id: string;
@@ -124,7 +123,7 @@ class PostSchedulerService {
     window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
   }
 
-  private moveToPublished(originalPost: ScheduledPost, publishedData: Partial<PublishedPost>) {
+  private moveToPublished(originalPost: ScheduledPost, publishedData: { publishedAt: string; tweetId?: string; tweetUrl?: string; status: string }) {
     // Remove from scheduled posts
     const scheduledPosts = this.getScheduledPosts();
     const updatedScheduledPosts = scheduledPosts.filter(post => post.id !== originalPost.id);
@@ -133,7 +132,10 @@ class PostSchedulerService {
     // Add to published posts
     const publishedPost: PublishedPost = {
       ...originalPost,
-      ...publishedData
+      publishedAt: publishedData.publishedAt,
+      tweetId: publishedData.tweetId,
+      tweetUrl: publishedData.tweetUrl,
+      status: publishedData.status
     };
 
     const savedPublishedPosts = localStorage.getItem('publishedPosts');
