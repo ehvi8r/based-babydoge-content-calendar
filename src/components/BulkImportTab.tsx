@@ -1,8 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import SpreadsheetUpload from './SpreadsheetUpload';
 import ImportedPostsList from './ImportedPostsList';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SpreadsheetPost {
   content: string;
@@ -13,22 +13,11 @@ interface SpreadsheetPost {
   imageUrl: string;
 }
 
-interface Post {
-  id: string;
-  content: string;
-  date: string;
-  time: string;
-  status: string;
-  hashtags?: string;
-  imageUrl?: string;
-}
-
 interface BulkImportTabProps {
-  scheduledPosts: Post[];
-  onPostsUpdate: (posts: Post[]) => void;
+  onPostsUpdate: () => void;
 }
 
-const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) => {
+const BulkImportTab = ({ onPostsUpdate }: BulkImportTabProps) => {
   const [importedPosts, setImportedPosts] = useState<SpreadsheetPost[]>([]);
   const { toast } = useToast();
 
@@ -63,7 +52,7 @@ const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) =>
     return scheduledDateTime > now;
   };
 
-  const handleScheduleImportedPost = (importedPost: SpreadsheetPost, index: number) => {
+  const handleScheduleImportedPost = async (importedPost: SpreadsheetPost, index: number) => {
     // Validate that the scheduled date/time is in the future
     if (!isValidFutureDateTime(importedPost.date, importedPost.time)) {
       toast({
@@ -74,34 +63,62 @@ const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) =>
       return;
     }
 
-    const newPost: Post = {
-      id: `imported-${Date.now()}-${index}`,
-      content: importedPost.content,
-      date: importedPost.date,
-      time: importedPost.time,
-      hashtags: importedPost.hashtags,
-      imageUrl: importedPost.imageUrl,
-      status: 'scheduled'
-    };
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to schedule posts",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    const updatedPosts = [...scheduledPosts, newPost];
-    onPostsUpdate(updatedPosts);
-    localStorage.setItem('scheduledPosts', JSON.stringify(updatedPosts));
+      const scheduledFor = new Date(`${importedPost.date}T${importedPost.time}`);
 
-    // Remove from imported posts
-    const updatedImportedPosts = importedPosts.filter((_, i) => i !== index);
-    setImportedPosts(updatedImportedPosts);
+      const { error } = await supabase
+        .from('scheduled_posts')
+        .insert({
+          user_id: user.id,
+          content: importedPost.content,
+          hashtags: importedPost.hashtags,
+          image_url: importedPost.imageUrl,
+          scheduled_for: scheduledFor.toISOString(),
+          status: 'scheduled'
+        });
 
-    // Dispatch event to notify other components
-    window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
+      if (error) {
+        console.error('Error scheduling post:', error);
+        toast({
+          title: "Error",
+          description: "Failed to schedule post",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    toast({
-      title: "Post Scheduled",
-      description: "Imported post has been scheduled successfully",
-    });
+      // Remove from imported posts
+      const updatedImportedPosts = importedPosts.filter((_, i) => i !== index);
+      setImportedPosts(updatedImportedPosts);
+
+      onPostsUpdate();
+
+      toast({
+        title: "Post Scheduled",
+        description: "Imported post has been scheduled successfully",
+      });
+    } catch (error) {
+      console.error('Error scheduling post:', error);
+      toast({
+        title: "Error",
+        description: "Failed to schedule post",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleScheduleAllImported = () => {
+  const handleScheduleAllImported = async () => {
     // Filter out posts with past dates/times
     const validPosts = importedPosts.filter(post => 
       isValidFutureDateTime(post.date, post.time)
@@ -119,30 +136,58 @@ const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) =>
       });
     }
 
-    const newPosts: Post[] = validPosts.map((importedPost, index) => ({
-      id: `imported-${Date.now()}-${index}`,
-      content: importedPost.content,
-      date: importedPost.date,
-      time: importedPost.time,
-      hashtags: importedPost.hashtags,
-      imageUrl: importedPost.imageUrl,
-      status: 'scheduled'
-    }));
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to schedule posts",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    const updatedPosts = [...scheduledPosts, ...newPosts];
-    onPostsUpdate(updatedPosts);
-    localStorage.setItem('scheduledPosts', JSON.stringify(updatedPosts));
+      const postsToInsert = validPosts.map(post => ({
+        user_id: user.id,
+        content: post.content,
+        hashtags: post.hashtags,
+        image_url: post.imageUrl,
+        scheduled_for: new Date(`${post.date}T${post.time}`).toISOString(),
+        status: 'scheduled' as const
+      }));
 
-    // Dispatch event to notify other components
-    window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
+      const { error } = await supabase
+        .from('scheduled_posts')
+        .insert(postsToInsert);
 
-    toast({
-      title: "Posts Scheduled",
-      description: `${validPosts.length} posts have been scheduled successfully`,
-    });
+      if (error) {
+        console.error('Error scheduling posts:', error);
+        toast({
+          title: "Error",
+          description: "Failed to schedule posts",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    // Keep only the invalid posts in imported posts
-    setImportedPosts(invalidPosts);
+      onPostsUpdate();
+
+      toast({
+        title: "Posts Scheduled",
+        description: `${validPosts.length} posts have been scheduled successfully`,
+      });
+
+      // Keep only the invalid posts in imported posts
+      setImportedPosts(invalidPosts);
+    } catch (error) {
+      console.error('Error scheduling posts:', error);
+      toast({
+        title: "Error",
+        description: "Failed to schedule posts",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEditImportedPost = (updatedPost: SpreadsheetPost, index: number) => {
@@ -168,7 +213,6 @@ const BulkImportTab = ({ scheduledPosts, onPostsUpdate }: BulkImportTabProps) =>
       
       <ImportedPostsList
         importedPosts={importedPosts}
-        scheduledPosts={scheduledPosts}
         onSchedulePost={handleScheduleImportedPost}
         onScheduleAll={handleScheduleAllImported}
         onEditPost={handleEditImportedPost}
