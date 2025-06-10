@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Edit, Trash2, Upload, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SpreadsheetPost {
   content: string;
@@ -53,21 +54,34 @@ const ImportedPostsList = ({
   const [editImageUrl, setEditImageUrl] = useState('');
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editImagePreview, setEditImagePreview] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const { toast } = useToast();
 
-  // Helper function to save image to localStorage
-  const saveImageToStorage = (file: File): string => {
-    const reader = new FileReader();
-    const imageId = `image_${Date.now()}_${Math.random()}`;
+  // Helper function to upload image to Supabase storage
+  const uploadImageToStorage = async (file: File): Promise<string> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
     
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        localStorage.setItem(imageId, e.target.result as string);
-      }
-    };
-    reader.readAsDataURL(file);
-    
-    return imageId;
+    const { data, error } = await supabase.storage
+      .from('media-uploads')
+      .upload(fileName, file);
+
+    if (error) {
+      console.error('Upload error:', error);
+      throw error;
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('media-uploads')
+      .getPublicUrl(fileName);
+
+    return publicUrl;
   };
 
   const handleEditClick = (post: SpreadsheetPost, index: number) => {
@@ -87,31 +101,48 @@ const ImportedPostsList = ({
     return selectedDateTime > now;
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        toast({
-          title: "Invalid file type",
-          description: "Please upload only image files",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      if (file.size > 10 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please upload images smaller than 10MB",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (!file) return;
 
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload only image files",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload images smaller than 10MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const uploadedUrl = await uploadImageToStorage(file);
       setEditImageFile(file);
-      const previewUrl = URL.createObjectURL(file);
-      setEditImagePreview(previewUrl);
-      setEditImageUrl('');
+      setEditImagePreview(uploadedUrl);
+      setEditImageUrl(uploadedUrl);
+      
+      toast({
+        title: "Image uploaded",
+        description: "Image has been uploaded successfully",
+      });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -136,20 +167,12 @@ const ImportedPostsList = ({
       return;
     }
 
-    let finalImageUrl = editImageUrl;
-    
-    // If there's a file, save it to localStorage and use the stored version
-    if (editImageFile) {
-      const imageId = saveImageToStorage(editImageFile);
-      finalImageUrl = imageId;
-    }
-
     const updatedPost: SpreadsheetPost = {
       content: editContent,
       hashtags: editHashtags,
       date: editDate,
       time: editTime,
-      imageUrl: finalImageUrl,
+      imageUrl: editImageUrl,
       status: 'imported'
     };
 
@@ -200,7 +223,7 @@ const ImportedPostsList = ({
                 {post.imageUrl && (
                   <div className="mb-2">
                     <img 
-                      src={post.imageUrl.startsWith('image_') ? localStorage.getItem(post.imageUrl) || post.imageUrl : post.imageUrl} 
+                      src={post.imageUrl} 
                       alt="Post image" 
                       className="w-16 h-16 object-cover rounded"
                       onError={(e) => {
@@ -287,7 +310,9 @@ const ImportedPostsList = ({
                     <div className="flex items-center justify-center p-3 border-2 border-dashed border-orange-500/70 rounded-lg hover:border-orange-400 transition-colors bg-orange-500/20 hover:bg-orange-500/30">
                       <div className="text-center">
                         <Upload className="mx-auto h-5 w-5 text-orange-300 mb-1" />
-                        <span className="text-xs text-orange-200 font-medium">Choose Image</span>
+                        <span className="text-xs text-orange-200 font-medium">
+                          {uploadingImage ? 'Uploading...' : 'Choose Image'}
+                        </span>
                       </div>
                     </div>
                   </Label>
@@ -296,6 +321,7 @@ const ImportedPostsList = ({
                     type="file"
                     accept="image/*"
                     onChange={handleImageUpload}
+                    disabled={uploadingImage}
                     className="hidden"
                   />
                   
@@ -373,6 +399,7 @@ const ImportedPostsList = ({
             <div className="flex gap-3 pt-4">
               <Button 
                 onClick={handleSaveEdit}
+                disabled={uploadingImage}
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
               >
                 Save Changes

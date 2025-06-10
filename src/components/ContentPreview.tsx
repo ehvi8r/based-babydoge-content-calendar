@@ -5,7 +5,7 @@ import { Eye, Image, Video } from 'lucide-react';
 interface ContentPreviewProps {
   content: string;
   hashtags: string;
-  media: File[];
+  media: string[];
 }
 
 const ContentPreview = ({ content, hashtags, media }: ContentPreviewProps) => {
@@ -31,6 +31,10 @@ const ContentPreview = ({ content, hashtags, media }: ContentPreviewProps) => {
       }
       return word + ' ';
     });
+  };
+
+  const isVideoUrl = (url: string) => {
+    return url.includes('video') || url.endsWith('.mp4') || url.endsWith('.webm');
   };
 
   return (
@@ -66,15 +70,33 @@ const ContentPreview = ({ content, hashtags, media }: ContentPreviewProps) => {
 
               {media.length > 0 && (
                 <div className="grid grid-cols-2 gap-2 mb-3">
-                  {media.slice(0, 4).map((file, index) => (
+                  {media.slice(0, 4).map((url, index) => (
                     <div
                       key={index}
-                      className="bg-slate-700 rounded-lg p-3 flex items-center justify-center h-20"
+                      className="bg-slate-700 rounded-lg overflow-hidden h-20"
                     >
-                      {file.type.startsWith('image/') ? (
-                        <Image className="text-blue-400" size={24} />
+                      {isVideoUrl(url) ? (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Video className="text-purple-400" size={24} />
+                        </div>
                       ) : (
-                        <Video className="text-purple-400" size={24} />
+                        <img 
+                          src={url} 
+                          alt={`Media ${index + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent) {
+                              parent.innerHTML = `
+                                <div class="w-full h-full flex items-center justify-center">
+                                  <div class="text-blue-400 text-xs">Image</div>
+                                </div>
+                              `;
+                            }
+                          }}
+                        />
                       )}
                     </div>
                   ))}

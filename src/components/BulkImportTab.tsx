@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import SpreadsheetUpload from './SpreadsheetUpload';
 import ImportedPostsList from './ImportedPostsList';
@@ -21,14 +22,37 @@ const BulkImportTab = ({ onPostsUpdate }: BulkImportTabProps) => {
   const [importedPosts, setImportedPosts] = useState<SpreadsheetPost[]>([]);
   const { toast } = useToast();
 
+  // Helper function to check if URL is a localStorage image reference
+  const isLocalStorageImage = (url: string): boolean => {
+    return url.startsWith('image_') && !url.startsWith('http');
+  };
+
+  // Helper function to clean up localStorage image references
+  const cleanupLocalStorageImages = (posts: SpreadsheetPost[]): SpreadsheetPost[] => {
+    return posts.map(post => {
+      if (isLocalStorageImage(post.imageUrl)) {
+        console.log('Removing invalid localStorage image reference:', post.imageUrl);
+        return { ...post, imageUrl: '' };
+      }
+      return post;
+    });
+  };
+
   // Load imported posts from localStorage on mount
   useEffect(() => {
     const savedImportedPosts = localStorage.getItem('importedPosts');
     if (savedImportedPosts) {
       try {
         const parsedPosts = JSON.parse(savedImportedPosts);
-        setImportedPosts(parsedPosts);
-        console.log('Loaded imported posts from localStorage:', parsedPosts);
+        const cleanedPosts = cleanupLocalStorageImages(parsedPosts);
+        setImportedPosts(cleanedPosts);
+        
+        // Update localStorage with cleaned posts if any changes were made
+        if (JSON.stringify(cleanedPosts) !== savedImportedPosts) {
+          localStorage.setItem('importedPosts', JSON.stringify(cleanedPosts));
+        }
+        
+        console.log('Loaded and cleaned imported posts from localStorage:', cleanedPosts);
       } catch (error) {
         console.error('Error loading imported posts:', error);
       }
@@ -42,8 +66,9 @@ const BulkImportTab = ({ onPostsUpdate }: BulkImportTabProps) => {
   }, [importedPosts]);
 
   const handlePostsImported = (posts: SpreadsheetPost[]) => {
-    setImportedPosts(posts);
-    console.log('Imported posts:', posts);
+    const cleanedPosts = cleanupLocalStorageImages(posts);
+    setImportedPosts(cleanedPosts);
+    console.log('Imported posts:', cleanedPosts);
   };
 
   const isValidFutureDateTime = (date: string, time: string): boolean => {
@@ -77,13 +102,16 @@ const BulkImportTab = ({ onPostsUpdate }: BulkImportTabProps) => {
 
       const scheduledFor = new Date(`${importedPost.date}T${importedPost.time}`);
 
+      // Clean the image URL - if it's a localStorage reference, set it to empty
+      const cleanImageUrl = isLocalStorageImage(importedPost.imageUrl) ? '' : importedPost.imageUrl;
+
       const { error } = await supabase
         .from('scheduled_posts')
         .insert({
           user_id: user.id,
           content: importedPost.content,
           hashtags: importedPost.hashtags,
-          image_url: importedPost.imageUrl,
+          image_url: cleanImageUrl,
           scheduled_for: scheduledFor.toISOString(),
           status: 'scheduled'
         });
@@ -148,14 +176,19 @@ const BulkImportTab = ({ onPostsUpdate }: BulkImportTabProps) => {
         return;
       }
 
-      const postsToInsert = validPosts.map(post => ({
-        user_id: user.id,
-        content: post.content,
-        hashtags: post.hashtags,
-        image_url: post.imageUrl,
-        scheduled_for: new Date(`${post.date}T${post.time}`).toISOString(),
-        status: 'scheduled' as const
-      }));
+      const postsToInsert = validPosts.map(post => {
+        // Clean the image URL - if it's a localStorage reference, set it to empty
+        const cleanImageUrl = isLocalStorageImage(post.imageUrl) ? '' : post.imageUrl;
+        
+        return {
+          user_id: user.id,
+          content: post.content,
+          hashtags: post.hashtags,
+          image_url: cleanImageUrl,
+          scheduled_for: new Date(`${post.date}T${post.time}`).toISOString(),
+          status: 'scheduled' as const
+        };
+      });
 
       const { error } = await supabase
         .from('scheduled_posts')
