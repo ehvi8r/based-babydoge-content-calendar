@@ -21,14 +21,24 @@ export const cleanupDuplicates = async (
   onError: (message: string) => void
 ): Promise<void> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    console.log('Starting duplicate cleanup for posts:', publishedPosts.length);
+
+    // First, let's check if user is authenticated
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
+    if (authError) {
+      console.error('Auth error:', authError);
+      onError(`Authentication error: ${authError.message}`);
+      return;
+    }
+
     if (!user) {
+      console.error('User not authenticated');
       onError("User not authenticated");
       return;
     }
 
-    console.log('Starting duplicate cleanup for posts:', publishedPosts.length);
+    console.log('User authenticated:', user.id);
 
     // Group posts by normalized content to find duplicates
     const postGroups: Record<string, PublishedPost[]> = {};
@@ -75,31 +85,52 @@ export const cleanupDuplicates = async (
     console.log('Total posts to delete:', postsToDelete);
 
     if (postsToDelete.length > 0) {
-      console.log('Deleting duplicate posts with IDs:', postsToDelete);
+      console.log('Attempting to delete duplicate posts with IDs:', postsToDelete);
       
+      // First, let's test if we can query these posts
+      const { data: postsToCheck, error: queryError } = await supabase
+        .from('published_posts')
+        .select('id, user_id')
+        .in('id', postsToDelete);
+
+      if (queryError) {
+        console.error('Error querying posts to delete:', queryError);
+        onError(`Failed to query posts: ${queryError.message}`);
+        return;
+      }
+
+      console.log('Posts found for deletion:', postsToCheck);
+
+      // Check if all posts belong to current user
+      const userPosts = postsToCheck?.filter(post => post.user_id === user.id);
+      console.log('User owns posts:', userPosts?.length, 'out of', postsToDelete.length);
+
       // Delete posts one by one to ensure they get deleted
       let deletedCount = 0;
       const errors: string[] = [];
 
       for (const postId of postsToDelete) {
-        const { error } = await supabase
+        console.log(`Attempting to delete post ${postId}...`);
+        
+        const { data, error } = await supabase
           .from('published_posts')
           .delete()
           .eq('id', postId)
-          .eq('user_id', user.id); // Ensure we only delete user's own posts
+          .eq('user_id', user.id)
+          .select('id');
 
         if (error) {
           console.error(`Error deleting post ${postId}:`, error);
           errors.push(`Failed to delete post ${postId}: ${error.message}`);
         } else {
-          console.log(`Successfully deleted post ${postId}`);
+          console.log(`Successfully deleted post ${postId}`, data);
           deletedCount++;
         }
       }
 
       if (errors.length > 0) {
         console.error('Some deletions failed:', errors);
-        onError(`Partially successful: deleted ${deletedCount} posts, ${errors.length} failed`);
+        onError(`Partially successful: deleted ${deletedCount} posts, ${errors.length} failed. Errors: ${errors.join(', ')}`);
       } else {
         console.log(`Successfully deleted all ${deletedCount} duplicate posts`);
         onSuccess(deletedCount);
