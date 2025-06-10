@@ -75,7 +75,7 @@ const MediaUpload = ({ onMediaChange }: MediaUploadProps) => {
         const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         
         const { data, error } = await supabase.storage
-          .from('media')
+          .from('media-uploads')
           .upload(fileName, file);
 
         if (error) {
@@ -85,7 +85,7 @@ const MediaUpload = ({ onMediaChange }: MediaUploadProps) => {
 
         // Get public URL
         const { data: { publicUrl } } = supabase.storage
-          .from('media')
+          .from('media-uploads')
           .getPublicUrl(fileName);
 
         return publicUrl;
@@ -119,10 +119,10 @@ const MediaUpload = ({ onMediaChange }: MediaUploadProps) => {
     
     try {
       // Extract file path from URL to delete from storage
-      const urlParts = fileUrl.split('/storage/v1/object/public/media/');
+      const urlParts = fileUrl.split('/storage/v1/object/public/media-uploads/');
       if (urlParts.length > 1) {
         const filePath = urlParts[1];
-        await supabase.storage.from('media').remove([filePath]);
+        await supabase.storage.from('media-uploads').remove([filePath]);
       }
     } catch (error) {
       console.error('Error deleting file:', error);
