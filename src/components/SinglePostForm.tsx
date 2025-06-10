@@ -25,7 +25,7 @@ const SinglePostForm = ({ onPostScheduled }: SinglePostFormProps) => {
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [selectedTime, setSelectedTime] = useState('');
   const [hashtags, setHashtags] = useState('');
-  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -69,12 +69,6 @@ const SinglePostForm = ({ onPostScheduled }: SinglePostFormProps) => {
         return;
       }
 
-      // Convert media file to image URL if available
-      let imageUrl = '';
-      if (mediaFiles.length > 0 && mediaFiles[0].type.startsWith('image/')) {
-        imageUrl = URL.createObjectURL(mediaFiles[0]);
-      }
-
       const scheduledFor = new Date(`${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`);
 
       const { error } = await supabase
@@ -83,7 +77,7 @@ const SinglePostForm = ({ onPostScheduled }: SinglePostFormProps) => {
           user_id: user.id,
           content,
           hashtags,
-          image_url: imageUrl,
+          image_url: mediaUrls.length > 0 ? mediaUrls[0] : null, // Use first media URL
           scheduled_for: scheduledFor.toISOString(),
           status: 'scheduled'
         });
@@ -108,7 +102,7 @@ const SinglePostForm = ({ onPostScheduled }: SinglePostFormProps) => {
       setSelectedDate(undefined);
       setSelectedTime('');
       setHashtags('');
-      setMediaFiles([]);
+      setMediaUrls([]);
       
       // Notify parent component
       onPostScheduled?.();
@@ -165,7 +159,7 @@ const SinglePostForm = ({ onPostScheduled }: SinglePostFormProps) => {
           />
         </div>
 
-        <MediaUpload onMediaChange={setMediaFiles} />
+        <MediaUpload onMediaChange={setMediaUrls} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>

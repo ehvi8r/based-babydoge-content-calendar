@@ -213,6 +213,7 @@ const BulkImportTab = ({ onPostsUpdate }: BulkImportTabProps) => {
       
       <ImportedPostsList
         importedPosts={importedPosts}
+        scheduledPosts={[]}
         onSchedulePost={handleScheduleImportedPost}
         onScheduleAll={handleScheduleAllImported}
         onEditPost={handleEditImportedPost}

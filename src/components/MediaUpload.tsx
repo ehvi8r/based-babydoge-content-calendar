@@ -4,18 +4,20 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Image, Video, Upload, X } from 'lucide-react';
+import { Image, Video, Upload, X, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MediaUploadProps {
-  onMediaChange: (files: File[]) => void;
+  onMediaChange: (urls: string[]) => void;
 }
 
 const MediaUpload = ({ onMediaChange }: MediaUploadProps) => {
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     
     // Validate file types and sizes
@@ -53,12 +55,79 @@ const MediaUpload = ({ onMediaChange }: MediaUploadProps) => {
       return;
     }
 
-    const newFiles = [...uploadedFiles, ...validFiles];
-    setUploadedFiles(newFiles);
-    onMediaChange(newFiles);
+    if (validFiles.length === 0) return;
+
+    setUploading(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to upload files",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const uploadPromises = validFiles.map(async (file) => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        
+        const { data, error } = await supabase.storage
+          .from('media')
+          .upload(fileName, file);
+
+        if (error) {
+          console.error('Upload error:', error);
+          throw error;
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('media')
+          .getPublicUrl(fileName);
+
+        return publicUrl;
+      });
+
+      const uploadedUrls = await Promise.all(uploadPromises);
+      const newFiles = [...uploadedFiles, ...uploadedUrls];
+      
+      setUploadedFiles(newFiles);
+      onMediaChange(newFiles);
+
+      toast({
+        title: "Upload successful",
+        description: `${validFiles.length} file(s) uploaded successfully`,
+      });
+
+    } catch (error) {
+      console.error('Upload failed:', error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload files. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const removeFile = (index: number) => {
+  const removeFile = async (index: number) => {
+    const fileUrl = uploadedFiles[index];
+    
+    try {
+      // Extract file path from URL to delete from storage
+      const urlParts = fileUrl.split('/storage/v1/object/public/media/');
+      if (urlParts.length > 1) {
+        const filePath = urlParts[1];
+        await supabase.storage.from('media').remove([filePath]);
+      }
+    } catch (error) {
+      console.error('Error deleting file:', error);
+    }
+
     const newFiles = uploadedFiles.filter((_, i) => i !== index);
     setUploadedFiles(newFiles);
     onMediaChange(newFiles);
@@ -72,8 +141,14 @@ const MediaUpload = ({ onMediaChange }: MediaUploadProps) => {
         <Label htmlFor="media-upload" className="cursor-pointer">
           <div className="flex items-center justify-center p-4 border-2 border-dashed border-orange-500/50 rounded-lg hover:border-orange-400 transition-colors bg-orange-500/10 hover:bg-orange-500/20">
             <div className="text-center">
-              <Upload className="mx-auto h-6 w-6 text-orange-400 mb-2" />
-              <span className="text-sm text-orange-300 font-medium">Choose Files</span>
+              {uploading ? (
+                <Loader2 className="mx-auto h-6 w-6 text-orange-400 mb-2 animate-spin" />
+              ) : (
+                <Upload className="mx-auto h-6 w-6 text-orange-400 mb-2" />
+              )}
+              <span className="text-sm text-orange-300 font-medium">
+                {uploading ? 'Uploading...' : 'Choose Files'}
+              </span>
             </div>
           </div>
         </Label>
@@ -83,6 +158,7 @@ const MediaUpload = ({ onMediaChange }: MediaUploadProps) => {
           multiple
           accept="image/*,video/*"
           onChange={handleFileUpload}
+          disabled={uploading}
           className="hidden"
         />
         
@@ -93,18 +169,18 @@ const MediaUpload = ({ onMediaChange }: MediaUploadProps) => {
 
       {uploadedFiles.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
-          {uploadedFiles.map((file, index) => (
+          {uploadedFiles.map((fileUrl, index) => (
             <Card key={index} className="bg-slate-700/50 border-slate-600">
               <CardContent className="p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    {file.type.startsWith('image/') ? (
-                      <Image className="text-blue-400" size={16} />
-                    ) : (
+                    {fileUrl.includes('video') ? (
                       <Video className="text-purple-400" size={16} />
+                    ) : (
+                      <Image className="text-blue-400" size={16} />
                     )}
                     <span className="text-xs text-white truncate">
-                      {file.name}
+                      Media {index + 1}
                     </span>
                   </div>
                   <Button
@@ -116,6 +192,13 @@ const MediaUpload = ({ onMediaChange }: MediaUploadProps) => {
                     <X size={12} />
                   </Button>
                 </div>
+                {fileUrl.includes('image') && (
+                  <img 
+                    src={fileUrl} 
+                    alt={`Upload ${index + 1}`}
+                    className="mt-2 w-full h-16 object-cover rounded"
+                  />
+                )}
               </CardContent>
             </Card>
           ))}

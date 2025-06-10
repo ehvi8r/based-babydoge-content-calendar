@@ -6,3 +6,6 @@ verify_jwt = false
 
 [functions.schedule-processor]
 verify_jwt = false
+
+[functions.analytics-updater]
+verify_jwt = false
