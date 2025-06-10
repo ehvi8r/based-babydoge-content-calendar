@@ -77,8 +77,8 @@ const ContentScheduler = () => {
       {/* Sidebar */}
       <div className="space-y-6">
         <OptimalTimeSuggestions times={optimalTimes} />
-        <ScheduledPosts key={refreshKey} onPostUpdate={handlePostsUpdate} />
-        <PublishedPostsHistory key={refreshKey} />
+        <ScheduledPosts onPostUpdate={handlePostsUpdate} />
+        <PublishedPostsHistory />
       </div>
     </div>
   );
