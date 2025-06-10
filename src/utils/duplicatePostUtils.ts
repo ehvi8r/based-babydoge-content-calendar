@@ -77,20 +77,33 @@ export const cleanupDuplicates = async (
     if (postsToDelete.length > 0) {
       console.log('Deleting duplicate posts with IDs:', postsToDelete);
       
-      const { data, error } = await supabase
-        .from('published_posts')
-        .delete()
-        .in('id', postsToDelete)
-        .select('id');
+      // Delete posts one by one to ensure they get deleted
+      let deletedCount = 0;
+      const errors: string[] = [];
 
-      if (error) {
-        console.error('Error deleting duplicates:', error);
-        onError(`Failed to cleanup duplicate posts: ${error.message}`);
-        return;
+      for (const postId of postsToDelete) {
+        const { error } = await supabase
+          .from('published_posts')
+          .delete()
+          .eq('id', postId)
+          .eq('user_id', user.id); // Ensure we only delete user's own posts
+
+        if (error) {
+          console.error(`Error deleting post ${postId}:`, error);
+          errors.push(`Failed to delete post ${postId}: ${error.message}`);
+        } else {
+          console.log(`Successfully deleted post ${postId}`);
+          deletedCount++;
+        }
       }
 
-      console.log('Successfully deleted duplicates:', data);
-      onSuccess(postsToDelete.length);
+      if (errors.length > 0) {
+        console.error('Some deletions failed:', errors);
+        onError(`Partially successful: deleted ${deletedCount} posts, ${errors.length} failed`);
+      } else {
+        console.log(`Successfully deleted all ${deletedCount} duplicate posts`);
+        onSuccess(deletedCount);
+      }
     } else {
       console.log('No duplicates found to delete');
       onSuccess(0);
