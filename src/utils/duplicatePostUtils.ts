@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { PublishedPost } from '@/hooks/usePublishedPosts';
 
@@ -87,53 +86,28 @@ export const cleanupDuplicates = async (
     if (postsToDelete.length > 0) {
       console.log('Attempting to delete duplicate posts with IDs:', postsToDelete);
       
-      // First, let's test if we can query these posts
-      const { data: postsToCheck, error: queryError } = await supabase
+      // Delete all duplicates in a single transaction using RPC or batch delete
+      const { data, error } = await supabase
         .from('published_posts')
-        .select('id, user_id')
-        .in('id', postsToDelete);
+        .delete()
+        .in('id', postsToDelete)
+        .eq('user_id', user.id)
+        .select('id');
 
-      if (queryError) {
-        console.error('Error querying posts to delete:', queryError);
-        onError(`Failed to query posts: ${queryError.message}`);
+      if (error) {
+        console.error('Error deleting duplicate posts:', error);
+        onError(`Failed to delete duplicates: ${error.message}`);
         return;
       }
 
-      console.log('Posts found for deletion:', postsToCheck);
-
-      // Check if all posts belong to current user
-      const userPosts = postsToCheck?.filter(post => post.user_id === user.id);
-      console.log('User owns posts:', userPosts?.length, 'out of', postsToDelete.length);
-
-      // Delete posts one by one to ensure they get deleted
-      let deletedCount = 0;
-      const errors: string[] = [];
-
-      for (const postId of postsToDelete) {
-        console.log(`Attempting to delete post ${postId}...`);
-        
-        const { data, error } = await supabase
-          .from('published_posts')
-          .delete()
-          .eq('id', postId)
-          .eq('user_id', user.id)
-          .select('id');
-
-        if (error) {
-          console.error(`Error deleting post ${postId}:`, error);
-          errors.push(`Failed to delete post ${postId}: ${error.message}`);
-        } else {
-          console.log(`Successfully deleted post ${postId}`, data);
-          deletedCount++;
-        }
-      }
-
-      if (errors.length > 0) {
-        console.error('Some deletions failed:', errors);
-        onError(`Partially successful: deleted ${deletedCount} posts, ${errors.length} failed. Errors: ${errors.join(', ')}`);
-      } else {
-        console.log(`Successfully deleted all ${deletedCount} duplicate posts`);
+      const deletedCount = data?.length || 0;
+      console.log(`Successfully deleted ${deletedCount} duplicate posts:`, data);
+      
+      if (deletedCount > 0) {
         onSuccess(deletedCount);
+      } else {
+        console.log('No posts were actually deleted');
+        onSuccess(0);
       }
     } else {
       console.log('No duplicates found to delete');
