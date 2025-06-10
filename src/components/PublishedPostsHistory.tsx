@@ -15,34 +15,49 @@ const PublishedPostsHistory = () => {
   const { toast } = useToast();
 
   const handleCleanupDuplicates = async () => {
+    if (cleaning) return;
+    
+    console.log('Starting cleanup process...');
     setCleaning(true);
     
-    await cleanupDuplicates(
-      publishedPosts,
-      (count) => {
-        if (count > 0) {
+    try {
+      await cleanupDuplicates(
+        publishedPosts,
+        (count) => {
+          console.log(`Cleanup completed, removed ${count} posts`);
+          if (count > 0) {
+            toast({
+              title: "Cleanup Complete",
+              description: `Removed ${count} duplicate post(s)`,
+            });
+            // Reload the posts to reflect changes
+            loadPublishedPosts();
+          } else {
+            toast({
+              title: "No Duplicates Found",
+              description: "All posts are unique",
+            });
+          }
+        },
+        (error) => {
+          console.error('Cleanup error:', error);
           toast({
-            title: "Cleanup Complete",
-            description: `Removed ${count} duplicate post(s)`,
-          });
-          loadPublishedPosts();
-        } else {
-          toast({
-            title: "No Duplicates Found",
-            description: "All posts are unique",
+            title: "Error",
+            description: error,
+            variant: "destructive",
           });
         }
-      },
-      (error) => {
-        toast({
-          title: "Error",
-          description: error,
-          variant: "destructive",
-        });
-      }
-    );
-    
-    setCleaning(false);
+      );
+    } catch (error) {
+      console.error('Unexpected error during cleanup:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred during cleanup",
+        variant: "destructive",
+      });
+    } finally {
+      setCleaning(false);
+    }
   };
 
   if (loading) {
@@ -57,6 +72,9 @@ const PublishedPostsHistory = () => {
     );
   }
 
+  const hasDuplicates = hasPotentialDuplicates(publishedPosts);
+  console.log('Has duplicates:', hasDuplicates, 'Posts count:', publishedPosts.length);
+
   return (
     <Card className="bg-slate-800/50 border-blue-500/20">
       <CardHeader>
@@ -65,7 +83,7 @@ const PublishedPostsHistory = () => {
             <CheckCircle className="text-green-400" size={20} />
             Published Posts History ({publishedPosts.length})
           </CardTitle>
-          {hasPotentialDuplicates(publishedPosts) && (
+          {hasDuplicates && (
             <Button
               variant="outline"
               size="sm"

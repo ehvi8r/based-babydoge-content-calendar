@@ -1,10 +1,11 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { PublishedPost } from '@/hooks/usePublishedPosts';
 
 export const hasPotentialDuplicates = (publishedPosts: PublishedPost[]): boolean => {
   const contentMap = new Map();
   for (const post of publishedPosts) {
-    const normalizedContent = post.content.trim().replace(/\s+/g, ' ');
+    const normalizedContent = post.content.trim().toLowerCase().replace(/\s+/g, ' ');
     if (contentMap.has(normalizedContent)) {
       return true;
     }
@@ -28,9 +29,9 @@ export const cleanupDuplicates = async (
 
     console.log('Starting duplicate cleanup for posts:', publishedPosts);
 
-    // Group posts by content to find duplicates (normalize whitespace)
+    // Group posts by normalized content to find duplicates
     const postGroups = publishedPosts.reduce((groups, post) => {
-      const normalizedContent = post.content.trim().replace(/\s+/g, ' ');
+      const normalizedContent = post.content.trim().toLowerCase().replace(/\s+/g, ' ');
       if (!groups[normalizedContent]) {
         groups[normalizedContent] = [];
       }
@@ -47,11 +48,14 @@ export const cleanupDuplicates = async (
       if (posts.length > 1) {
         console.log(`Found ${posts.length} duplicates for content: "${content.substring(0, 50)}..."`);
         
-        // Sort by: posts with tweet_id first, then by published_at (most recent first)
+        // Sort by: posts with valid tweet_id first, then by published_at (most recent first)
         const sortedPosts = posts.sort((a, b) => {
-          // Prioritize posts with tweet_id
-          if (a.tweet_id && !b.tweet_id) return -1;
-          if (!a.tweet_id && b.tweet_id) return 1;
+          // Prioritize posts with tweet_id and tweet_url
+          const aHasValidTweet = a.tweet_id && a.tweet_url;
+          const bHasValidTweet = b.tweet_id && b.tweet_url;
+          
+          if (aHasValidTweet && !bHasValidTweet) return -1;
+          if (!aHasValidTweet && bHasValidTweet) return 1;
           
           // If both have or don't have tweet_id, sort by published_at (most recent first)
           return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
@@ -76,17 +80,18 @@ export const cleanupDuplicates = async (
 
       if (error) {
         console.error('Error deleting duplicates:', error);
-        onError("Failed to cleanup duplicate posts");
+        onError(`Failed to cleanup duplicate posts: ${error.message}`);
         return;
       }
 
       console.log('Successfully deleted duplicates');
       onSuccess(postsToDelete.length);
     } else {
+      console.log('No duplicates found to delete');
       onSuccess(0);
     }
   } catch (error) {
     console.error('Error during cleanup:', error);
-    onError("Failed to cleanup duplicate posts");
+    onError(`Failed to cleanup duplicate posts: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 };
