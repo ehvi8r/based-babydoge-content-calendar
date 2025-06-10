@@ -16,15 +16,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log("Checking for posts to schedule...");
+    const currentTime = new Date().toISOString();
+    console.log(`Checking for posts to schedule at ${currentTime} (UTC)...`);
     
-    // Get posts that should be published now
-    // Fixed the query to properly compare retry_count with max_retries as integers
+    // Get posts that should be published now - only those that haven't reached max retries
     const { data: postsToPublish, error } = await supabase
       .from('scheduled_posts')
       .select('*')
       .eq('status', 'scheduled')
-      .lte('scheduled_for', new Date().toISOString())
+      .lte('scheduled_for', currentTime)
       .lt('retry_count', 3); // Direct comparison with integer instead of column reference
 
     if (error) {
@@ -32,7 +32,17 @@ Deno.serve(async (req) => {
       throw error;
     }
 
-    console.log(`Found ${postsToPublish?.length || 0} posts to publish`);
+    console.log(`Found ${postsToPublish?.length || 0} posts to publish at ${currentTime}`);
+
+    // Log details about posts found
+    if (postsToPublish && postsToPublish.length > 0) {
+      postsToPublish.forEach(post => {
+        console.log(`Post ${post.id}: scheduled_for=${post.scheduled_for}, retry_count=${post.retry_count}`);
+      });
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
 
     for (const post of postsToPublish || []) {
       try {
@@ -69,9 +79,14 @@ Deno.serve(async (req) => {
           const errorText = await response.text();
           console.error(`Failed to post tweet for ${post.id}:`, errorText);
           
-          // Update retry count and status
+          // Determine if this is a retryable error or permanent failure
+          const isRetryableError = !errorText.includes('credentials') && 
+                                 !errorText.includes('unauthorized') &&
+                                 !errorText.includes('forbidden');
+          
           const newRetryCount = (post.retry_count || 0) + 1;
-          const newStatus = newRetryCount >= 3 ? 'failed' : 'scheduled';
+          const shouldRetry = isRetryableError && newRetryCount < 3;
+          const newStatus = shouldRetry ? 'scheduled' : 'failed';
           
           await supabase
             .from('scheduled_posts')
@@ -81,6 +96,9 @@ Deno.serve(async (req) => {
               error_message: `Attempt ${newRetryCount}: ${errorText}`
             })
             .eq('id', post.id);
+
+          console.log(`Post ${post.id} ${shouldRetry ? 'will be retried' : 'permanently failed'} after ${newRetryCount} attempts`);
+          errorCount++;
         } else {
           console.log(`Successfully posted tweet for ${post.id}`);
           
@@ -111,6 +129,8 @@ Deno.serve(async (req) => {
           if (deleteError) {
             console.error(`Error deleting scheduled post ${post.id}:`, deleteError);
           }
+
+          successCount++;
         }
       } catch (error) {
         console.error(`Error processing post ${post.id}:`, error);
@@ -127,13 +147,22 @@ Deno.serve(async (req) => {
             error_message: `Attempt ${newRetryCount}: ${error.message}`
           })
           .eq('id', post.id);
+
+        errorCount++;
       }
     }
+
+    const summary = `Processed ${(postsToPublish?.length || 0)} posts: ${successCount} successful, ${errorCount} failed`;
+    console.log(summary);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        processed: postsToPublish?.length || 0 
+        processed: postsToPublish?.length || 0,
+        successful: successCount,
+        failed: errorCount,
+        timestamp: currentTime,
+        summary
       }),
       { 
         headers: { 
@@ -148,7 +177,8 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: error.message,
+        timestamp: new Date().toISOString()
       }),
       { 
         status: 500,

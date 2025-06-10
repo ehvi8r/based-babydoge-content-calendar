@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Clock, Trash2, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react';
+import { Clock, Trash2, RefreshCw, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import EditScheduledPostDialog from './EditScheduledPostDialog';
@@ -18,6 +18,7 @@ interface ScheduledPost {
   status: string;
   error_message?: string;
   retry_count: number;
+  max_retries: number;
 }
 
 interface PublishedPost {
@@ -142,7 +143,8 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
         .from('scheduled_posts')
         .update({ 
           status: 'scheduled',
-          error_message: null 
+          error_message: null,
+          retry_count: 0
         })
         .eq('id', postId);
 
@@ -157,15 +159,18 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
       }
 
       toast({
-        title: "Post Queued for Retry",
-        description: "The post will be attempted again at the next scheduled time",
+        title: "Post Reset for Retry",
+        description: "The post has been reset and will be attempted again",
       });
     } catch (error) {
       console.error('Error retrying post:', error);
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, retryCount: number, maxRetries: number) => {
+    if (retryCount >= maxRetries && status === 'scheduled') {
+      return 'bg-orange-600'; // Max retries reached
+    }
     switch (status) {
       case 'scheduled':
         return 'bg-blue-600';
@@ -180,7 +185,10 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: string, retryCount: number, maxRetries: number) => {
+    if (retryCount >= maxRetries && status === 'scheduled') {
+      return <AlertTriangle size={12} />;
+    }
     if (status === 'publishing') {
       return <Loader2 className="animate-spin" size={12} />;
     }
@@ -188,6 +196,13 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
       return <CheckCircle2 size={12} />;
     }
     return null;
+  };
+
+  const getStatusText = (status: string, retryCount: number, maxRetries: number) => {
+    if (retryCount >= maxRetries && status === 'scheduled') {
+      return 'failed (max retries)';
+    }
+    return status;
   };
 
   const formatDateTime = (dateString: string) => {
@@ -199,6 +214,8 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
   };
 
   const getStatusDisplay = (post: ScheduledPost) => {
+    const isMaxRetriesReached = post.retry_count >= post.max_retries;
+    
     if (post.status === 'published') {
       const publishedInfo = getPublishedInfo(post.id);
       if (publishedInfo) {
@@ -222,9 +239,28 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
         );
       }
     }
+
+    if (isMaxRetriesReached && post.status === 'scheduled') {
+      return (
+        <div className="space-y-1">
+          <div className="text-orange-300 text-xs font-medium">
+            Failed after {post.retry_count} attempts
+          </div>
+          <div className="text-xs text-slate-400">
+            Was scheduled for: {formatDateTime(post.scheduled_for)}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="text-xs text-slate-400">
         Scheduled for: {formatDateTime(post.scheduled_for)}
+        {post.retry_count > 0 && (
+          <div className="text-yellow-300">
+            Retry count: {post.retry_count}/{post.max_retries}
+          </div>
+        )}
       </div>
     );
   };
@@ -257,72 +293,87 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
         ) : (
           <ScrollArea className="h-96">
             <div className="space-y-3 pr-4">
-              {posts.map((post) => (
-                <div key={post.id} className="bg-slate-700/50 rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(post.status)}
-                      <Badge variant="secondary" className={`${getStatusColor(post.status)} text-white`}>
-                        {post.status}
-                      </Badge>
-                    </div>
-                    <div className="flex gap-1">
-                      {post.status !== 'published' && (
-                        <EditScheduledPostDialog post={post} onPostUpdate={loadPosts} />
-                      )}
-                      {post.status === 'failed' && (
+              {posts.map((post) => {
+                const isMaxRetriesReached = post.retry_count >= post.max_retries;
+                const canRetry = isMaxRetriesReached || post.status === 'failed';
+                
+                return (
+                  <div key={post.id} className="bg-slate-700/50 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(post.status, post.retry_count, post.max_retries)}
+                        <Badge 
+                          variant="secondary" 
+                          className={`${getStatusColor(post.status, post.retry_count, post.max_retries)} text-white`}
+                        >
+                          {getStatusText(post.status, post.retry_count, post.max_retries)}
+                        </Badge>
+                      </div>
+                      <div className="flex gap-1">
+                        {post.status !== 'published' && (
+                          <EditScheduledPostDialog post={post} onPostUpdate={loadPosts} />
+                        )}
+                        {canRetry && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 w-6 p-0 text-blue-400 hover:bg-blue-400/20"
+                            onClick={() => handleRetryPost(post.id)}
+                            title="Reset and retry this post"
+                          >
+                            <RefreshCw size={12} />
+                          </Button>
+                        )}
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="h-6 w-6 p-0 text-blue-400 hover:bg-blue-400/20"
-                          onClick={() => handleRetryPost(post.id)}
+                          className="h-6 w-6 p-0 text-red-400 hover:bg-red-400/20"
+                          onClick={() => handleDeletePost(post.id)}
                         >
-                          <RefreshCw size={12} />
+                          <Trash2 size={12} />
                         </Button>
-                      )}
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-6 w-6 p-0 text-red-400 hover:bg-red-400/20"
-                        onClick={() => handleDeletePost(post.id)}
-                      >
-                        <Trash2 size={12} />
-                      </Button>
+                      </div>
                     </div>
+                    
+                    <p className="text-white text-sm line-clamp-2">
+                      {post.content}
+                    </p>
+
+                    {post.image_url && (
+                      <div className="mt-2">
+                        <img 
+                          src={post.image_url} 
+                          alt="Post image" 
+                          className="w-16 h-16 object-cover rounded"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                    
+                    {post.hashtags && (
+                      <p className="text-blue-300 text-xs">
+                        {post.hashtags}
+                      </p>
+                    )}
+
+                    {post.error_message && (
+                      <p className="text-red-300 text-xs bg-red-900/20 p-2 rounded">
+                        Error: {post.error_message}
+                      </p>
+                    )}
+                    
+                    {getStatusDisplay(post)}
+
+                    {isMaxRetriesReached && post.status === 'scheduled' && (
+                      <div className="text-orange-300 text-xs bg-orange-900/20 p-2 rounded">
+                        This post has reached the maximum number of retry attempts. Check your Twitter API configuration and click the retry button to try again.
+                      </div>
+                    )}
                   </div>
-                  
-                  <p className="text-white text-sm line-clamp-2">
-                    {post.content}
-                  </p>
-
-                  {post.image_url && (
-                    <div className="mt-2">
-                      <img 
-                        src={post.image_url} 
-                        alt="Post image" 
-                        className="w-16 h-16 object-cover rounded"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    </div>
-                  )}
-                  
-                  {post.hashtags && (
-                    <p className="text-blue-300 text-xs">
-                      {post.hashtags}
-                    </p>
-                  )}
-
-                  {post.error_message && (
-                    <p className="text-red-300 text-xs bg-red-900/20 p-2 rounded">
-                      Error: {post.error_message}
-                    </p>
-                  )}
-                  
-                  {getStatusDisplay(post)}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </ScrollArea>
         )}

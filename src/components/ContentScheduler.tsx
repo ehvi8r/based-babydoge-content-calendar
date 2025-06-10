@@ -9,6 +9,7 @@ import ScheduledPosts from './ScheduledPosts';
 import PublishedPostsHistory from './PublishedPostsHistory';
 import TwitterApiConfig from './TwitterApiConfig';
 import ManualTrigger from './ManualTrigger';
+import SchedulingDebugPanel from './SchedulingDebugPanel';
 
 const ContentScheduler = () => {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -78,7 +79,7 @@ const ContentScheduler = () => {
       {/* Sidebar */}
       <div className="space-y-6">
         <OptimalTimeSuggestions times={optimalTimes} />
-        <ManualTrigger />
+        <SchedulingDebugPanel />
         <ScheduledPosts onPostUpdate={handlePostsUpdate} />
         <PublishedPostsHistory />
       </div>
