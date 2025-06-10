@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ExternalLink, CheckCircle, Loader2 } from 'lucide-react';
+import { ExternalLink, CheckCircle, Loader2, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,6 +20,7 @@ interface PublishedPost {
 const PublishedPostsHistory = () => {
   const [publishedPosts, setPublishedPosts] = useState<PublishedPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cleaning, setCleaning] = useState(false);
   const { toast } = useToast();
 
   const loadPublishedPosts = async () => {
@@ -54,6 +54,97 @@ const PublishedPostsHistory = () => {
       console.error('Error loading published posts:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const cleanupDuplicates = async () => {
+    setCleaning(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "User not authenticated",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Group posts by content to find duplicates
+      const postGroups = publishedPosts.reduce((groups, post) => {
+        const key = post.content.trim();
+        if (!groups[key]) {
+          groups[key] = [];
+        }
+        groups[key].push(post);
+        return groups;
+      }, {} as Record<string, PublishedPost[]>);
+
+      const postsToDelete: string[] = [];
+
+      // For each group of posts with the same content
+      for (const [content, posts] of Object.entries(postGroups)) {
+        if (posts.length > 1) {
+          // Sort by: posts with tweet_id first, then by published_at (most recent first)
+          const sortedPosts = posts.sort((a, b) => {
+            // Prioritize posts with tweet_id
+            if (a.tweet_id && !b.tweet_id) return -1;
+            if (!a.tweet_id && b.tweet_id) return 1;
+            
+            // If both have or don't have tweet_id, sort by published_at (most recent first)
+            return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
+          });
+
+          // Keep the first one (best one), mark the rest for deletion
+          const [keepPost, ...duplicates] = sortedPosts;
+          console.log(`Keeping post ${keepPost.id} (has tweet_id: ${!!keepPost.tweet_id})`);
+          console.log(`Deleting ${duplicates.length} duplicates:`, duplicates.map(p => p.id));
+          
+          postsToDelete.push(...duplicates.map(p => p.id));
+        }
+      }
+
+      if (postsToDelete.length > 0) {
+        console.log('Deleting duplicate posts:', postsToDelete);
+        
+        const { error } = await supabase
+          .from('published_posts')
+          .delete()
+          .in('id', postsToDelete);
+
+        if (error) {
+          console.error('Error deleting duplicates:', error);
+          toast({
+            title: "Error",
+            description: "Failed to cleanup duplicate posts",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        toast({
+          title: "Cleanup Complete",
+          description: `Removed ${postsToDelete.length} duplicate post(s)`,
+        });
+
+        // Reload the posts
+        await loadPublishedPosts();
+      } else {
+        toast({
+          title: "No Duplicates Found",
+          description: "All posts are unique",
+        });
+      }
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+      toast({
+        title: "Error",
+        description: "Failed to cleanup duplicate posts",
+        variant: "destructive",
+      });
+    } finally {
+      setCleaning(false);
     }
   };
 
@@ -94,6 +185,19 @@ const PublishedPostsHistory = () => {
     }
   };
 
+  // Check if there are potential duplicates
+  const hasPotentialDuplicates = () => {
+    const contentMap = new Map();
+    for (const post of publishedPosts) {
+      const content = post.content.trim();
+      if (contentMap.has(content)) {
+        return true;
+      }
+      contentMap.set(content, true);
+    }
+    return false;
+  };
+
   if (loading) {
     return (
       <Card className="bg-slate-800/50 border-blue-500/20">
@@ -109,10 +213,28 @@ const PublishedPostsHistory = () => {
   return (
     <Card className="bg-slate-800/50 border-blue-500/20">
       <CardHeader>
-        <CardTitle className="text-white flex items-center gap-2">
-          <CheckCircle className="text-green-400" size={20} />
-          Published Posts History ({publishedPosts.length})
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-white flex items-center gap-2">
+            <CheckCircle className="text-green-400" size={20} />
+            Published Posts History ({publishedPosts.length})
+          </CardTitle>
+          {hasPotentialDuplicates() && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={cleanupDuplicates}
+              disabled={cleaning}
+              className="border-red-500/50 text-red-400 hover:bg-red-500/20"
+            >
+              {cleaning ? (
+                <Loader2 className="animate-spin" size={14} />
+              ) : (
+                <Trash2 size={14} />
+              )}
+              {cleaning ? 'Cleaning...' : 'Remove Duplicates'}
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {publishedPosts.length === 0 ? (
@@ -130,6 +252,11 @@ const PublishedPostsHistory = () => {
                       <Badge variant="secondary" className="bg-green-600 text-white">
                         published
                       </Badge>
+                      {!post.tweet_id && (
+                        <Badge variant="secondary" className="bg-yellow-600 text-white">
+                          no tweet id
+                        </Badge>
+                      )}
                     </div>
                     
                     <div className="flex gap-1">
