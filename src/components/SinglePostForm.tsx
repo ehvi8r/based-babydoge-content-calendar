@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,29 +13,20 @@ import { CalendarIcon, Clock, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import MediaUpload from './MediaUpload';
 
-interface Post {
-  id: string;
-  content: string;
-  date: string;
-  time: string;
-  status: string;
-  hashtags?: string;
-  imageUrl?: string;
-}
-
 interface SinglePostFormProps {
-  scheduledPosts: Post[];
-  onPostScheduled: (posts: Post[]) => void;
+  onPostScheduled?: () => void;
 }
 
-const SinglePostForm = ({ scheduledPosts, onPostScheduled }: SinglePostFormProps) => {
+const SinglePostForm = ({ onPostScheduled }: SinglePostFormProps) => {
   const [content, setContent] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [selectedTime, setSelectedTime] = useState('');
   const [hashtags, setHashtags] = useState('');
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   const isValidFutureDateTime = (date: Date, time: string): boolean => {
@@ -43,7 +35,7 @@ const SinglePostForm = ({ scheduledPosts, onPostScheduled }: SinglePostFormProps
     return scheduledDateTime > now;
   };
 
-  const handleSchedulePost = () => {
+  const handleSchedulePost = async () => {
     if (!content || !selectedDate || !selectedTime) {
       toast({
         title: "Missing Information",
@@ -53,7 +45,6 @@ const SinglePostForm = ({ scheduledPosts, onPostScheduled }: SinglePostFormProps
       return;
     }
 
-    // Validate that the scheduled date/time is in the future
     if (!isValidFutureDateTime(selectedDate, selectedTime)) {
       toast({
         title: "Invalid Date/Time",
@@ -63,40 +54,75 @@ const SinglePostForm = ({ scheduledPosts, onPostScheduled }: SinglePostFormProps
       return;
     }
 
-    // Convert first media file to image URL if available
-    let imageUrl = '';
-    if (mediaFiles.length > 0 && mediaFiles[0].type.startsWith('image/')) {
-      imageUrl = URL.createObjectURL(mediaFiles[0]);
+    setIsSubmitting(true);
+
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to schedule posts",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Convert media file to image URL if available
+      let imageUrl = '';
+      if (mediaFiles.length > 0 && mediaFiles[0].type.startsWith('image/')) {
+        imageUrl = URL.createObjectURL(mediaFiles[0]);
+      }
+
+      const scheduledFor = new Date(`${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`);
+
+      const { error } = await supabase
+        .from('scheduled_posts')
+        .insert({
+          user_id: user.id,
+          content,
+          hashtags,
+          image_url: imageUrl,
+          scheduled_for: scheduledFor.toISOString(),
+          status: 'scheduled'
+        });
+
+      if (error) {
+        console.error('Error scheduling post:', error);
+        toast({
+          title: "Error",
+          description: "Failed to schedule post. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Post Scheduled",
+        description: `Your post has been scheduled for ${format(selectedDate, 'PPP')} at ${selectedTime}`,
+      });
+
+      // Reset form
+      setContent('');
+      setSelectedDate(undefined);
+      setSelectedTime('');
+      setHashtags('');
+      setMediaFiles([]);
+      
+      // Notify parent component
+      onPostScheduled?.();
+
+    } catch (error) {
+      console.error('Error scheduling post:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const newPost: Post = {
-      id: Date.now().toString(),
-      content,
-      date: format(selectedDate, 'yyyy-MM-dd'),
-      time: selectedTime,
-      hashtags,
-      imageUrl,
-      status: 'scheduled'
-    };
-
-    const updatedPosts = [...scheduledPosts, newPost];
-    onPostScheduled(updatedPosts);
-    localStorage.setItem('scheduledPosts', JSON.stringify(updatedPosts));
-    
-    // Dispatch event to notify other components
-    window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
-    
-    toast({
-      title: "Post Scheduled",
-      description: `Your post has been scheduled for ${format(selectedDate, 'PPP')} at ${selectedTime}`,
-    });
-
-    // Reset form
-    setContent('');
-    setSelectedDate(undefined);
-    setSelectedTime('');
-    setHashtags('');
-    setMediaFiles([]);
   };
 
   return (
@@ -193,10 +219,11 @@ const SinglePostForm = ({ scheduledPosts, onPostScheduled }: SinglePostFormProps
         <div className="flex gap-3">
           <Button 
             onClick={handleSchedulePost}
+            disabled={isSubmitting}
             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
           >
             <Clock className="mr-2 h-4 w-4" />
-            Schedule Post
+            {isSubmitting ? 'Scheduling...' : 'Schedule Post'}
           </Button>
           <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
             Save Draft

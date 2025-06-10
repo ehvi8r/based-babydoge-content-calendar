@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SinglePostForm from './SinglePostForm';
@@ -6,18 +7,10 @@ import OptimalTimeSuggestions from './OptimalTimeSuggestions';
 import ContentPreview from './ContentPreview';
 import ScheduledPosts from './ScheduledPosts';
 import PublishedPostsHistory from './PublishedPostsHistory';
-
-interface Post {
-  id: string;
-  content: string;
-  date: string;
-  time: string;
-  status: string;
-  hashtags?: string;
-}
+import TwitterApiConfig from './TwitterApiConfig';
 
 const ContentScheduler = () => {
-  const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const optimalTimes = [
     { time: '9:00 AM', engagement: 'High', reason: 'Morning commute' },
@@ -25,45 +18,34 @@ const ContentScheduler = () => {
     { time: '7:00 PM', engagement: 'High', reason: 'Evening social time' }
   ];
 
-  // Load scheduled posts from localStorage on mount
-  useEffect(() => {
-    const loadPosts = () => {
-      const savedPosts = localStorage.getItem('scheduledPosts');
-      if (savedPosts) {
-        try {
-          const parsedPosts = JSON.parse(savedPosts);
-          setScheduledPosts(parsedPosts);
-          console.log('ContentScheduler loaded posts:', parsedPosts);
-        } catch (error) {
-          console.error('Error loading scheduled posts:', error);
-        }
-      }
-    };
-
-    loadPosts();
-
-    // Listen for updates from other components
-    const handlePostsUpdate = () => {
-      loadPosts();
-    };
-
-    window.addEventListener('scheduledPostsUpdated', handlePostsUpdate);
-    
-    return () => {
-      window.removeEventListener('scheduledPostsUpdated', handlePostsUpdate);
-    };
-  }, []);
-
-  const handlePostsUpdate = (posts: Post[]) => {
-    setScheduledPosts(posts);
-    // Dispatch custom event to notify other components
-    window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
+  const handlePostsUpdate = () => {
+    setRefreshKey(prev => prev + 1);
   };
+
+  useEffect(() => {
+    // Set up interval to check for posts to schedule every minute
+    const interval = setInterval(async () => {
+      try {
+        // This could call the schedule-processor function
+        // For now, we'll let the cron job handle it
+        console.log('Checking for posts to schedule...');
+      } catch (error) {
+        console.error('Error in schedule check:', error);
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Content Creation */}
       <div className="lg:col-span-2 space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-white">Content Scheduler</h1>
+          <TwitterApiConfig />
+        </div>
+
         <Tabs defaultValue="single" className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-slate-800/50 border border-blue-500/20">
             <TabsTrigger 
@@ -81,17 +63,11 @@ const ContentScheduler = () => {
           </TabsList>
           
           <TabsContent value="single" className="mt-4">
-            <SinglePostForm 
-              scheduledPosts={scheduledPosts}
-              onPostScheduled={handlePostsUpdate}
-            />
+            <SinglePostForm onPostScheduled={handlePostsUpdate} />
           </TabsContent>
           
           <TabsContent value="bulk" className="mt-4">
-            <BulkImportTab
-              scheduledPosts={scheduledPosts}
-              onPostsUpdate={handlePostsUpdate}
-            />
+            <BulkImportTab onPostsUpdate={handlePostsUpdate} />
           </TabsContent>
         </Tabs>
 
@@ -101,8 +77,8 @@ const ContentScheduler = () => {
       {/* Sidebar */}
       <div className="space-y-6">
         <OptimalTimeSuggestions times={optimalTimes} />
-        <ScheduledPosts onPostUpdate={handlePostsUpdate} />
-        <PublishedPostsHistory />
+        <ScheduledPosts key={refreshKey} onPostUpdate={handlePostsUpdate} />
+        <PublishedPostsHistory key={refreshKey} />
       </div>
     </div>
   );

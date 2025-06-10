@@ -1,1 +1,8 @@
+
 project_id = "pzwdzsijkpzatnsfmcjq"
+
+[functions.post-tweet]
+verify_jwt = false
+
+[functions.schedule-processor]
+verify_jwt = false

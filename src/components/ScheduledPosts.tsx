@@ -1,135 +1,145 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Clock, Edit, Trash2, RefreshCw, Loader2 } from 'lucide-react';
-import EditPostDialog from './EditPostDialog';
-import { postScheduler } from '@/services/postScheduler';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
-interface Post {
+interface ScheduledPost {
   id: string;
   content: string;
-  date: string;
-  time: string;
-  status: string;
   hashtags?: string;
-  imageUrl?: string;
-  error?: string;
+  image_url?: string;
+  scheduled_for: string;
+  status: string;
+  error_message?: string;
+  retry_count: number;
 }
 
 interface ScheduledPostsProps {
-  onPostUpdate?: (posts: Post[]) => void;
+  onPostUpdate?: () => void;
 }
 
 const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [editingPost, setEditingPost] = useState<Post | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [posts, setPosts] = useState<ScheduledPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
-  // Load posts from localStorage on component mount
-  useEffect(() => {
-    const loadPosts = () => {
-      const savedPosts = localStorage.getItem('scheduledPosts');
-      if (savedPosts) {
-        try {
-          const parsedPosts = JSON.parse(savedPosts);
-          setPosts(parsedPosts);
-          console.log('Loaded scheduled posts from localStorage:', parsedPosts);
-        } catch (error) {
-          console.error('Error loading scheduled posts:', error);
-        }
-      } else {
+  const loadPosts = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
         setPosts([]);
+        setLoading(false);
+        return;
       }
-    };
 
+      const { data, error } = await supabase
+        .from('scheduled_posts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('scheduled_for', { ascending: true });
+
+      if (error) {
+        console.error('Error loading posts:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load scheduled posts",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setPosts(data || []);
+    } catch (error) {
+      console.error('Error loading posts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadPosts();
 
-    // Start the post scheduler service
-    postScheduler.start();
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel('scheduled-posts-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'scheduled_posts'
+        },
+        () => {
+          loadPosts();
+          onPostUpdate?.();
+        }
+      )
+      .subscribe();
 
     return () => {
-      // Clean up on unmount
-      postScheduler.stop();
+      supabase.removeChannel(channel);
     };
-  }, []);
+  }, [onPostUpdate]);
 
-  // Save posts to localStorage whenever posts change and notify parent
-  useEffect(() => {
-    if (posts.length >= 0) {
-      localStorage.setItem('scheduledPosts', JSON.stringify(posts));
-      console.log('Saved scheduled posts to localStorage:', posts);
-      onPostUpdate?.(posts);
-    }
-  }, [posts, onPostUpdate]);
+  const handleDeletePost = async (postId: string) => {
+    try {
+      const { error } = await supabase
+        .from('scheduled_posts')
+        .delete()
+        .eq('id', postId);
 
-  // Listen for external updates to scheduled posts
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'scheduledPosts' && e.newValue) {
-        try {
-          const updatedPosts = JSON.parse(e.newValue);
-          setPosts(updatedPosts);
-        } catch (error) {
-          console.error('Error parsing updated scheduled posts:', error);
-        }
+      if (error) {
+        console.error('Error deleting post:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete post",
+          variant: "destructive",
+        });
+        return;
       }
-    };
 
-    const handlePostsUpdate = () => {
-      const savedPosts = localStorage.getItem('scheduledPosts');
-      if (savedPosts) {
-        try {
-          const parsedPosts = JSON.parse(savedPosts);
-          setPosts(parsedPosts);
-          console.log('Posts updated via custom event:', parsedPosts);
-        } catch (error) {
-          console.error('Error loading updated scheduled posts:', error);
-        }
-      } else {
-        setPosts([]);
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('scheduledPostsUpdated', handlePostsUpdate);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('scheduledPostsUpdated', handlePostsUpdate);
-    };
-  }, []);
-
-  const handleEditPost = (post: Post) => {
-    setEditingPost(post);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleSavePost = (updatedPost: Post) => {
-    setPosts(posts.map(post => 
-      post.id === updatedPost.id ? updatedPost : post
-    ));
-    setEditingPost(null);
-    setIsEditDialogOpen(false);
-    
-    // Dispatch event to notify other components
-    window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
-  };
-
-  const handleDeletePost = (postId: string) => {
-    const updatedPosts = posts.filter(post => post.id !== postId);
-    setPosts(updatedPosts);
-    if (updatedPosts.length === 0) {
-      localStorage.removeItem('scheduledPosts');
+      toast({
+        title: "Post Deleted",
+        description: "The scheduled post has been deleted",
+      });
+    } catch (error) {
+      console.error('Error deleting post:', error);
     }
-    
-    // Dispatch event to notify other components
-    window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
   };
 
   const handleRetryPost = async (postId: string) => {
-    await postScheduler.retryFailedPost(postId);
+    try {
+      const { error } = await supabase
+        .from('scheduled_posts')
+        .update({ 
+          status: 'scheduled',
+          error_message: null 
+        })
+        .eq('id', postId);
+
+      if (error) {
+        console.error('Error retrying post:', error);
+        toast({
+          title: "Error",
+          description: "Failed to retry post",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Post Queued for Retry",
+        description: "The post will be attempted again at the next scheduled time",
+      });
+    } catch (error) {
+      console.error('Error retrying post:', error);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -154,121 +164,108 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
     return null;
   };
 
-  // Sort posts by date and time (most recent first)
-  const sortedPosts = [...posts].sort((a, b) => {
-    const dateTimeA = new Date(`${a.date}T${a.time}`);
-    const dateTimeB = new Date(`${b.date}T${b.time}`);
-    return dateTimeB.getTime() - dateTimeA.getTime();
-  });
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleString();
+  };
+
+  if (loading) {
+    return (
+      <Card className="bg-slate-800/50 border-blue-500/20">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center">
+            <Loader2 className="animate-spin text-blue-400" size={24} />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <>
-      <Card className="bg-slate-800/50 border-blue-500/20">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <Clock className="text-blue-400" size={20} />
-            Scheduled Posts ({posts.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {posts.length === 0 ? (
-            <div className="text-center py-6 text-slate-400">
-              No scheduled posts yet
-            </div>
-          ) : (
-            <ScrollArea className="h-96">
-              <div className="space-y-3 pr-4">
-                {sortedPosts.map((post) => (
-                  <div key={post.id} className="bg-slate-700/50 rounded-lg p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(post.status)}
-                        <Badge variant="secondary" className={`${getStatusColor(post.status)} text-white`}>
-                          {post.status}
-                        </Badge>
-                      </div>
-                      <div className="flex gap-1">
-                        {post.status === 'failed' && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-6 w-6 p-0 text-blue-400 hover:bg-blue-400/20"
-                            onClick={() => handleRetryPost(post.id)}
-                          >
-                            <RefreshCw size={12} />
-                          </Button>
-                        )}
-                        {(post.status === 'scheduled' || post.status === 'failed') && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-6 w-6 p-0 text-blue-400 hover:bg-blue-400/20"
-                            onClick={() => handleEditPost(post)}
-                          >
-                            <Edit size={12} />
-                          </Button>
-                        )}
+    <Card className="bg-slate-800/50 border-blue-500/20">
+      <CardHeader>
+        <CardTitle className="text-white flex items-center gap-2">
+          <Clock className="text-blue-400" size={20} />
+          Scheduled Posts ({posts.length})
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {posts.length === 0 ? (
+          <div className="text-center py-6 text-slate-400">
+            No scheduled posts yet
+          </div>
+        ) : (
+          <ScrollArea className="h-96">
+            <div className="space-y-3 pr-4">
+              {posts.map((post) => (
+                <div key={post.id} className="bg-slate-700/50 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(post.status)}
+                      <Badge variant="secondary" className={`${getStatusColor(post.status)} text-white`}>
+                        {post.status}
+                      </Badge>
+                    </div>
+                    <div className="flex gap-1">
+                      {post.status === 'failed' && (
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="h-6 w-6 p-0 text-red-400 hover:bg-red-400/20"
-                          onClick={() => handleDeletePost(post.id)}
+                          className="h-6 w-6 p-0 text-blue-400 hover:bg-blue-400/20"
+                          onClick={() => handleRetryPost(post.id)}
                         >
-                          <Trash2 size={12} />
+                          <RefreshCw size={12} />
                         </Button>
-                      </div>
-                    </div>
-                    
-                    <p className="text-white text-sm line-clamp-2">
-                      {post.content}
-                    </p>
-
-                    {post.imageUrl && (
-                      <div className="mt-2">
-                        <img 
-                          src={post.imageUrl} 
-                          alt="Post image" 
-                          className="w-16 h-16 object-cover rounded"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      </div>
-                    )}
-                    
-                    {post.hashtags && (
-                      <p className="text-blue-300 text-xs">
-                        {post.hashtags}
-                      </p>
-                    )}
-
-                    {post.error && (
-                      <p className="text-red-300 text-xs bg-red-900/20 p-2 rounded">
-                        Error: {post.error}
-                      </p>
-                    )}
-                    
-                    <div className="text-xs text-slate-400">
-                      {post.date} at {post.time}
+                      )}
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 w-6 p-0 text-red-400 hover:bg-red-400/20"
+                        onClick={() => handleDeletePost(post.id)}
+                      >
+                        <Trash2 size={12} />
+                      </Button>
                     </div>
                   </div>
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
+                  
+                  <p className="text-white text-sm line-clamp-2">
+                    {post.content}
+                  </p>
 
-      <EditPostDialog
-        post={editingPost}
-        isOpen={isEditDialogOpen}
-        onClose={() => {
-          setIsEditDialogOpen(false);
-          setEditingPost(null);
-        }}
-        onSave={handleSavePost}
-      />
-    </>
+                  {post.image_url && (
+                    <div className="mt-2">
+                      <img 
+                        src={post.image_url} 
+                        alt="Post image" 
+                        className="w-16 h-16 object-cover rounded"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                  
+                  {post.hashtags && (
+                    <p className="text-blue-300 text-xs">
+                      {post.hashtags}
+                    </p>
+                  )}
+
+                  {post.error_message && (
+                    <p className="text-red-300 text-xs bg-red-900/20 p-2 rounded">
+                      Error: {post.error_message}
+                    </p>
+                  )}
+                  
+                  <div className="text-xs text-slate-400">
+                    Scheduled for: {formatDateTime(post.scheduled_for)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
