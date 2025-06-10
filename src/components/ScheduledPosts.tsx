@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Clock, Trash2, RefreshCw, Loader2 } from 'lucide-react';
+import { Clock, Trash2, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import EditScheduledPostDialog from './EditScheduledPostDialog';
@@ -20,12 +20,20 @@ interface ScheduledPost {
   retry_count: number;
 }
 
+interface PublishedPost {
+  id: string;
+  original_scheduled_post_id: string;
+  published_at: string;
+  tweet_url?: string;
+}
+
 interface ScheduledPostsProps {
   onPostUpdate?: () => void;
 }
 
 const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
+  const [publishedPosts, setPublishedPosts] = useState<PublishedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -35,18 +43,20 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
       
       if (!user) {
         setPosts([]);
+        setPublishedPosts([]);
         setLoading(false);
         return;
       }
 
-      const { data, error } = await supabase
+      // Load scheduled posts
+      const { data: scheduledData, error: scheduledError } = await supabase
         .from('scheduled_posts')
         .select('*')
         .eq('user_id', user.id)
         .order('scheduled_for', { ascending: true });
 
-      if (error) {
-        console.error('Error loading posts:', error);
+      if (scheduledError) {
+        console.error('Error loading scheduled posts:', scheduledError);
         toast({
           title: "Error",
           description: "Failed to load scheduled posts",
@@ -55,7 +65,19 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
         return;
       }
 
-      setPosts(data || []);
+      // Load published posts for reference
+      const { data: publishedData, error: publishedError } = await supabase
+        .from('published_posts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('published_at', { ascending: false });
+
+      if (publishedError) {
+        console.error('Error loading published posts:', publishedError);
+      }
+
+      setPosts(scheduledData || []);
+      setPublishedPosts(publishedData || []);
     } catch (error) {
       console.error('Error loading posts:', error);
     } finally {
@@ -162,11 +184,49 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
     if (status === 'publishing') {
       return <Loader2 className="animate-spin" size={12} />;
     }
+    if (status === 'published') {
+      return <CheckCircle2 size={12} />;
+    }
     return null;
   };
 
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString();
+  };
+
+  const getPublishedInfo = (postId: string) => {
+    return publishedPosts.find(p => p.original_scheduled_post_id === postId);
+  };
+
+  const getStatusDisplay = (post: ScheduledPost) => {
+    if (post.status === 'published') {
+      const publishedInfo = getPublishedInfo(post.id);
+      if (publishedInfo) {
+        const publishedTime = new Date(publishedInfo.published_at).toLocaleString();
+        return (
+          <div className="space-y-1">
+            <div className="text-green-300 text-xs font-medium">
+              Posted to X at {publishedTime}
+            </div>
+            {publishedInfo.tweet_url && (
+              <a 
+                href={publishedInfo.tweet_url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-300 text-xs underline"
+              >
+                View on X
+              </a>
+            )}
+          </div>
+        );
+      }
+    }
+    return (
+      <div className="text-xs text-slate-400">
+        Scheduled for: {formatDateTime(post.scheduled_for)}
+      </div>
+    );
   };
 
   if (loading) {
@@ -207,7 +267,9 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
                       </Badge>
                     </div>
                     <div className="flex gap-1">
-                      <EditScheduledPostDialog post={post} onPostUpdate={loadPosts} />
+                      {post.status !== 'published' && (
+                        <EditScheduledPostDialog post={post} onPostUpdate={loadPosts} />
+                      )}
                       {post.status === 'failed' && (
                         <Button 
                           variant="ghost" 
@@ -258,9 +320,7 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
                     </p>
                   )}
                   
-                  <div className="text-xs text-slate-400">
-                    Scheduled for: {formatDateTime(post.scheduled_for)}
-                  </div>
+                  {getStatusDisplay(post)}
                 </div>
               ))}
             </div>

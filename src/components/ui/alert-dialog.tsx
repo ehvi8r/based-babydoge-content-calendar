@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 
@@ -41,7 +42,7 @@ const AlertDialogContent = React.forwardRef<
         // Prevent auto-focus conflicts with aria-hidden elements
         e.preventDefault();
         // Allow manual focus management within the alert dialog
-        const focusableElement = e.currentTarget.querySelector(
+        const focusableElement = (e.currentTarget as HTMLElement).querySelector(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
         ) as HTMLElement;
         if (focusableElement) {

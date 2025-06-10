@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
@@ -43,7 +44,7 @@ const DialogContent = React.forwardRef<
         // Prevent auto-focus conflicts with aria-hidden elements
         e.preventDefault();
         // Allow manual focus management within the dialog
-        const focusableElement = e.currentTarget.querySelector(
+        const focusableElement = (e.currentTarget as HTMLElement).querySelector(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
         ) as HTMLElement;
         if (focusableElement) {

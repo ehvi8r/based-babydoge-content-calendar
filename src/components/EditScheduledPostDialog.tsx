@@ -1,13 +1,12 @@
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CalendarIcon, Edit } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -117,6 +116,9 @@ const EditScheduledPostDialog = ({ post, onPostUpdate }: EditScheduledPostDialog
       <DialogContent className="bg-slate-800 border-slate-600 text-white max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-white">Edit Scheduled Post</DialogTitle>
+          <DialogDescription className="text-slate-400">
+            Modify your scheduled post content, hashtags, and timing.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div>
@@ -170,22 +172,14 @@ const EditScheduledPostDialog = ({ post, onPostUpdate }: EditScheduledPostDialog
             </div>
 
             <div>
-              <Label className="text-blue-200">Time</Label>
-              <Select value={selectedTime} onValueChange={setSelectedTime}>
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                  <SelectValue placeholder="Select time" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-600">
-                  {Array.from({ length: 24 }, (_, i) => {
-                    const hour = i.toString().padStart(2, '0');
-                    return (
-                      <SelectItem key={i} value={`${hour}:00`} className="text-white">
-                        {hour}:00
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="time-input" className="text-blue-200">Time (HH:MM)</Label>
+              <Input
+                id="time-input"
+                type="time"
+                value={selectedTime}
+                onChange={(e) => setSelectedTime(e.target.value)}
+                className="bg-slate-700 border-slate-600 text-white"
+              />
             </div>
           </div>
 

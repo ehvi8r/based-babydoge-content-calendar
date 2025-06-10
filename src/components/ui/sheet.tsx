@@ -1,3 +1,4 @@
+
 import * as SheetPrimitive from "@radix-ui/react-dialog"
 import { cva, type VariantProps } from "class-variance-authority"
 import { X } from "lucide-react"
@@ -64,7 +65,7 @@ const SheetContent = React.forwardRef<
         // Prevent auto-focus conflicts with aria-hidden elements
         e.preventDefault();
         // Allow manual focus management within the sheet
-        const focusableElement = e.currentTarget.querySelector(
+        const focusableElement = (e.currentTarget as HTMLElement).querySelector(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
         ) as HTMLElement;
         if (focusableElement) {
