@@ -71,21 +71,27 @@ const PublishedPostsHistory = () => {
         return;
       }
 
-      // Group posts by content to find duplicates
+      console.log('Starting duplicate cleanup for posts:', publishedPosts);
+
+      // Group posts by content to find duplicates (normalize whitespace)
       const postGroups = publishedPosts.reduce((groups, post) => {
-        const key = post.content.trim();
-        if (!groups[key]) {
-          groups[key] = [];
+        const normalizedContent = post.content.trim().replace(/\s+/g, ' ');
+        if (!groups[normalizedContent]) {
+          groups[normalizedContent] = [];
         }
-        groups[key].push(post);
+        groups[normalizedContent].push(post);
         return groups;
       }, {} as Record<string, PublishedPost[]>);
+
+      console.log('Post groups by content:', postGroups);
 
       const postsToDelete: string[] = [];
 
       // For each group of posts with the same content
       for (const [content, posts] of Object.entries(postGroups)) {
         if (posts.length > 1) {
+          console.log(`Found ${posts.length} duplicates for content: "${content.substring(0, 50)}..."`);
+          
           // Sort by: posts with tweet_id first, then by published_at (most recent first)
           const sortedPosts = posts.sort((a, b) => {
             // Prioritize posts with tweet_id
@@ -99,14 +105,14 @@ const PublishedPostsHistory = () => {
           // Keep the first one (best one), mark the rest for deletion
           const [keepPost, ...duplicates] = sortedPosts;
           console.log(`Keeping post ${keepPost.id} (has tweet_id: ${!!keepPost.tweet_id})`);
-          console.log(`Deleting ${duplicates.length} duplicates:`, duplicates.map(p => p.id));
+          console.log(`Marking ${duplicates.length} duplicates for deletion:`, duplicates.map(p => ({ id: p.id, has_tweet_id: !!p.tweet_id })));
           
           postsToDelete.push(...duplicates.map(p => p.id));
         }
       }
 
       if (postsToDelete.length > 0) {
-        console.log('Deleting duplicate posts:', postsToDelete);
+        console.log('Deleting duplicate posts with IDs:', postsToDelete);
         
         const { error } = await supabase
           .from('published_posts')
@@ -123,6 +129,7 @@ const PublishedPostsHistory = () => {
           return;
         }
 
+        console.log('Successfully deleted duplicates');
         toast({
           title: "Cleanup Complete",
           description: `Removed ${postsToDelete.length} duplicate post(s)`,
@@ -189,11 +196,11 @@ const PublishedPostsHistory = () => {
   const hasPotentialDuplicates = () => {
     const contentMap = new Map();
     for (const post of publishedPosts) {
-      const content = post.content.trim();
-      if (contentMap.has(content)) {
+      const normalizedContent = post.content.trim().replace(/\s+/g, ' ');
+      if (contentMap.has(normalizedContent)) {
         return true;
       }
-      contentMap.set(content, true);
+      contentMap.set(normalizedContent, true);
     }
     return false;
   };
