@@ -19,12 +19,13 @@ Deno.serve(async (req) => {
     console.log("Checking for posts to schedule...");
     
     // Get posts that should be published now
+    // Fixed the query to properly compare retry_count with max_retries
     const { data: postsToPublish, error } = await supabase
       .from('scheduled_posts')
       .select('*')
       .eq('status', 'scheduled')
       .lte('scheduled_for', new Date().toISOString())
-      .lt('retry_count', supabase.rpc('coalesce', { val: 'max_retries', default_val: 3 }));
+      .filter('retry_count', 'lt', 'max_retries');
 
     if (error) {
       console.error("Error fetching posts:", error);
