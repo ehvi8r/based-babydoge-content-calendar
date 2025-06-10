@@ -19,13 +19,13 @@ Deno.serve(async (req) => {
     console.log("Checking for posts to schedule...");
     
     // Get posts that should be published now
-    // Fixed the query to properly compare retry_count with max_retries
+    // Fixed the query to properly compare retry_count with max_retries as integers
     const { data: postsToPublish, error } = await supabase
       .from('scheduled_posts')
       .select('*')
       .eq('status', 'scheduled')
       .lte('scheduled_for', new Date().toISOString())
-      .filter('retry_count', 'lt', 'max_retries');
+      .lt('retry_count', 3); // Direct comparison with integer instead of column reference
 
     if (error) {
       console.error("Error fetching posts:", error);
@@ -37,6 +37,17 @@ Deno.serve(async (req) => {
     for (const post of postsToPublish || []) {
       try {
         console.log(`Processing post ${post.id}...`);
+        
+        // Update status to 'publishing' immediately to prevent duplicate processing
+        const { error: updateError } = await supabase
+          .from('scheduled_posts')
+          .update({ status: 'publishing' })
+          .eq('id', post.id);
+
+        if (updateError) {
+          console.error(`Error updating post status for ${post.id}:`, updateError);
+          continue;
+        }
         
         const content = post.hashtags ? `${post.content} ${post.hashtags}` : post.content;
         
@@ -50,17 +61,72 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             postId: post.id,
             content: content,
+            imageUrl: post.image_url
           }),
         });
 
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`Failed to post tweet for ${post.id}:`, errorText);
+          
+          // Update retry count and status
+          const newRetryCount = (post.retry_count || 0) + 1;
+          const newStatus = newRetryCount >= 3 ? 'failed' : 'scheduled';
+          
+          await supabase
+            .from('scheduled_posts')
+            .update({ 
+              retry_count: newRetryCount,
+              status: newStatus,
+              error_message: `Attempt ${newRetryCount}: ${errorText}`
+            })
+            .eq('id', post.id);
         } else {
           console.log(`Successfully posted tweet for ${post.id}`);
+          
+          // Move to published_posts table
+          const publishedPost = {
+            user_id: post.user_id,
+            content: post.content,
+            hashtags: post.hashtags,
+            image_url: post.image_url,
+            original_scheduled_post_id: post.id,
+            published_at: new Date().toISOString()
+          };
+
+          const { error: publishError } = await supabase
+            .from('published_posts')
+            .insert(publishedPost);
+
+          if (publishError) {
+            console.error(`Error moving post to published_posts for ${post.id}:`, publishError);
+          }
+
+          // Delete from scheduled_posts
+          const { error: deleteError } = await supabase
+            .from('scheduled_posts')
+            .delete()
+            .eq('id', post.id);
+
+          if (deleteError) {
+            console.error(`Error deleting scheduled post ${post.id}:`, deleteError);
+          }
         }
       } catch (error) {
         console.error(`Error processing post ${post.id}:`, error);
+        
+        // Update retry count and status on error
+        const newRetryCount = (post.retry_count || 0) + 1;
+        const newStatus = newRetryCount >= 3 ? 'failed' : 'scheduled';
+        
+        await supabase
+          .from('scheduled_posts')
+          .update({ 
+            retry_count: newRetryCount,
+            status: newStatus,
+            error_message: `Attempt ${newRetryCount}: ${error.message}`
+          })
+          .eq('id', post.id);
       }
     }
 

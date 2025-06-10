@@ -8,6 +8,7 @@ import ContentPreview from './ContentPreview';
 import ScheduledPosts from './ScheduledPosts';
 import PublishedPostsHistory from './PublishedPostsHistory';
 import TwitterApiConfig from './TwitterApiConfig';
+import ManualTrigger from './ManualTrigger';
 
 const ContentScheduler = () => {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -77,6 +78,7 @@ const ContentScheduler = () => {
       {/* Sidebar */}
       <div className="space-y-6">
         <OptimalTimeSuggestions times={optimalTimes} />
+        <ManualTrigger />
         <ScheduledPosts onPostUpdate={handlePostsUpdate} />
         <PublishedPostsHistory />
       </div>
