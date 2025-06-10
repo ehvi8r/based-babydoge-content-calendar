@@ -7,6 +7,7 @@ export const hasPotentialDuplicates = (publishedPosts: PublishedPost[]): boolean
   for (const post of publishedPosts) {
     const normalizedContent = post.content.trim().toLowerCase().replace(/\s+/g, ' ');
     if (contentMap.has(normalizedContent)) {
+      console.log('Found duplicate content:', normalizedContent.substring(0, 50));
       return true;
     }
     contentMap.set(normalizedContent, true);
@@ -27,24 +28,25 @@ export const cleanupDuplicates = async (
       return;
     }
 
-    console.log('Starting duplicate cleanup for posts:', publishedPosts);
+    console.log('Starting duplicate cleanup for posts:', publishedPosts.length);
 
     // Group posts by normalized content to find duplicates
-    const postGroups = publishedPosts.reduce((groups, post) => {
+    const postGroups: Record<string, PublishedPost[]> = {};
+    
+    publishedPosts.forEach(post => {
       const normalizedContent = post.content.trim().toLowerCase().replace(/\s+/g, ' ');
-      if (!groups[normalizedContent]) {
-        groups[normalizedContent] = [];
+      if (!postGroups[normalizedContent]) {
+        postGroups[normalizedContent] = [];
       }
-      groups[normalizedContent].push(post);
-      return groups;
-    }, {} as Record<string, PublishedPost[]>);
+      postGroups[normalizedContent].push(post);
+    });
 
-    console.log('Post groups by content:', postGroups);
+    console.log('Post groups created:', Object.keys(postGroups).length);
 
     const postsToDelete: string[] = [];
 
     // For each group of posts with the same content
-    for (const [content, posts] of Object.entries(postGroups)) {
+    Object.entries(postGroups).forEach(([content, posts]) => {
       if (posts.length > 1) {
         console.log(`Found ${posts.length} duplicates for content: "${content.substring(0, 50)}..."`);
         
@@ -68,15 +70,18 @@ export const cleanupDuplicates = async (
         
         postsToDelete.push(...duplicates.map(p => p.id));
       }
-    }
+    });
+
+    console.log('Total posts to delete:', postsToDelete);
 
     if (postsToDelete.length > 0) {
       console.log('Deleting duplicate posts with IDs:', postsToDelete);
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('published_posts')
         .delete()
-        .in('id', postsToDelete);
+        .in('id', postsToDelete)
+        .select('id');
 
       if (error) {
         console.error('Error deleting duplicates:', error);
@@ -84,7 +89,7 @@ export const cleanupDuplicates = async (
         return;
       }
 
-      console.log('Successfully deleted duplicates');
+      console.log('Successfully deleted duplicates:', data);
       onSuccess(postsToDelete.length);
     } else {
       console.log('No duplicates found to delete');

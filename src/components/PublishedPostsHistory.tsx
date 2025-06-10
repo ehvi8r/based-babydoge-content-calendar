@@ -17,7 +17,7 @@ const PublishedPostsHistory = () => {
   const handleCleanupDuplicates = async () => {
     if (cleaning) return;
     
-    console.log('Starting cleanup process...');
+    console.log('Starting cleanup process... Current posts:', publishedPosts.length);
     setCleaning(true);
     
     try {
@@ -30,8 +30,10 @@ const PublishedPostsHistory = () => {
               title: "Cleanup Complete",
               description: `Removed ${count} duplicate post(s)`,
             });
-            // Reload the posts to reflect changes
-            loadPublishedPosts();
+            // Force reload the posts to reflect changes
+            setTimeout(() => {
+              loadPublishedPosts();
+            }, 500);
           } else {
             toast({
               title: "No Duplicates Found",
