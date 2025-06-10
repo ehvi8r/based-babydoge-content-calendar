@@ -9,7 +9,134 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      post_analytics: {
+        Row: {
+          created_at: string | null
+          id: string
+          impressions: number | null
+          last_updated: string | null
+          likes: number | null
+          published_post_id: string | null
+          replies: number | null
+          retweets: number | null
+          tweet_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          impressions?: number | null
+          last_updated?: string | null
+          likes?: number | null
+          published_post_id?: string | null
+          replies?: number | null
+          retweets?: number | null
+          tweet_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          impressions?: number | null
+          last_updated?: string | null
+          likes?: number | null
+          published_post_id?: string | null
+          replies?: number | null
+          retweets?: number | null
+          tweet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_analytics_published_post_id_fkey"
+            columns: ["published_post_id"]
+            isOneToOne: false
+            referencedRelation: "published_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      published_posts: {
+        Row: {
+          content: string
+          created_at: string | null
+          hashtags: string | null
+          id: string
+          image_url: string | null
+          original_scheduled_post_id: string | null
+          published_at: string | null
+          tweet_id: string | null
+          tweet_url: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          hashtags?: string | null
+          id?: string
+          image_url?: string | null
+          original_scheduled_post_id?: string | null
+          published_at?: string | null
+          tweet_id?: string | null
+          tweet_url?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          hashtags?: string | null
+          id?: string
+          image_url?: string | null
+          original_scheduled_post_id?: string | null
+          published_at?: string | null
+          tweet_id?: string | null
+          tweet_url?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      scheduled_posts: {
+        Row: {
+          content: string
+          created_at: string | null
+          error_message: string | null
+          hashtags: string | null
+          id: string
+          image_url: string | null
+          max_retries: number | null
+          retry_count: number | null
+          scheduled_for: string
+          status: Database["public"]["Enums"]["post_status"] | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          error_message?: string | null
+          hashtags?: string | null
+          id?: string
+          image_url?: string | null
+          max_retries?: number | null
+          retry_count?: number | null
+          scheduled_for: string
+          status?: Database["public"]["Enums"]["post_status"] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          error_message?: string | null
+          hashtags?: string | null
+          id?: string
+          image_url?: string | null
+          max_retries?: number | null
+          retry_count?: number | null
+          scheduled_for?: string
+          status?: Database["public"]["Enums"]["post_status"] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +145,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      post_status: "scheduled" | "publishing" | "published" | "failed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +260,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      post_status: ["scheduled", "publishing", "published", "failed"],
+    },
   },
 } as const
