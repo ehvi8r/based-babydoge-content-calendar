@@ -56,9 +56,12 @@ export const usePublishedPosts = () => {
   useEffect(() => {
     loadPublishedPosts();
 
+    // Create a unique channel name to avoid conflicts
+    const channelName = `published_posts_changes_${Date.now()}_${Math.random()}`;
+
     // Subscribe to real-time updates
     const channel = supabase
-      .channel('published-posts-changes')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {

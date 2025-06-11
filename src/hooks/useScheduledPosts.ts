@@ -66,9 +66,12 @@ export const useScheduledPosts = () => {
   useEffect(() => {
     loadScheduledPosts();
 
+    // Create a unique channel name to avoid conflicts
+    const channelName = `scheduled_posts_changes_${Date.now()}_${Math.random()}`;
+    
     // Set up real-time subscription for scheduled posts
     const channel = supabase
-      .channel('scheduled_posts_changes')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
