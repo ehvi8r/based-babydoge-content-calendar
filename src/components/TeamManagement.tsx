@@ -43,6 +43,8 @@ const TeamManagement = () => {
         return 'bg-red-600';
       case 'team_member':
         return 'bg-blue-600';
+      case 'user':
+        return 'bg-green-600';
       default:
         return 'bg-gray-600';
     }
@@ -120,6 +122,8 @@ const TeamManagement = () => {
         {/* Debug Info */}
         <div className="text-xs text-slate-500 bg-slate-900/30 p-2 rounded">
           Debug: Found {teamMembers.length} team members, {invitations.length} pending invitations
+          <br />
+          Team members data: {JSON.stringify(teamMembers.map(m => ({ email: m.email, role: m.role })), null, 2)}
         </div>
 
         {/* Pending Invitations */}
@@ -158,11 +162,11 @@ const TeamManagement = () => {
         <div className="space-y-3">
           <h3 className="text-white font-medium flex items-center gap-2">
             <Users size={16} />
-            Team Members ({teamMembers.length})
+            All Users ({teamMembers.length})
           </h3>
           {teamMembers.length === 0 ? (
             <div className="text-center py-6 text-slate-400">
-              No team members found. Try clicking the refresh button above.
+              No users found. Try clicking the refresh button above.
             </div>
           ) : (
             <div className="space-y-2">
