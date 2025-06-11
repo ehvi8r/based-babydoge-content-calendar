@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SinglePostForm from './SinglePostForm';
@@ -11,9 +10,12 @@ import TwitterApiConfig from './TwitterApiConfig';
 import ManualTrigger from './ManualTrigger';
 import SchedulingDebugPanel from './SchedulingDebugPanel';
 import AdBanner from './AdBanner';
+import BannerUpload from './BannerUpload';
 
 const ContentScheduler = () => {
   const [refreshKey, setRefreshKey] = useState(0);
+  const [bannerImageUrl, setBannerImageUrl] = useState('https://via.placeholder.com/728x90/1e293b/60a5fa?text=Your+Ad+Here');
+  const [bannerLinkUrl, setBannerLinkUrl] = useState('https://babydoge20.com');
 
   const optimalTimes = [
     { time: '9:00 AM', engagement: 'High', reason: 'Morning commute' },
@@ -23,6 +25,10 @@ const ContentScheduler = () => {
 
   const handlePostsUpdate = () => {
     setRefreshKey(prev => prev + 1);
+  };
+
+  const handleBannerUploaded = (imageUrl: string) => {
+    setBannerImageUrl(imageUrl || 'https://via.placeholder.com/728x90/1e293b/60a5fa?text=Your+Ad+Here');
   };
 
   useEffect(() => {
@@ -74,13 +80,21 @@ const ContentScheduler = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Ad Banner */}
-        <AdBanner
-          imageUrl="https://via.placeholder.com/728x90/1e293b/60a5fa?text=Your+Ad+Here"
-          linkUrl="https://babydoge20.com"
-          altText="BabyDoge Advertisement"
-          title="Sponsored"
+        {/* Banner Upload Component */}
+        <BannerUpload
+          onBannerUploaded={handleBannerUploaded}
+          currentImageUrl={bannerImageUrl !== 'https://via.placeholder.com/728x90/1e293b/60a5fa?text=Your+Ad+Here' ? bannerImageUrl : undefined}
         />
+
+        {/* Ad Banner */}
+        {bannerImageUrl && (
+          <AdBanner
+            imageUrl={bannerImageUrl}
+            linkUrl={bannerLinkUrl}
+            altText="BabyDoge Advertisement"
+            title="Sponsored"
+          />
+        )}
 
         <ContentPreview content="" hashtags="" media={[]} />
       </div>
