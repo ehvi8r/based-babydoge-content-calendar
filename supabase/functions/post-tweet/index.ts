@@ -60,10 +60,62 @@ function generateOAuthHeader(method: string, url: string): string {
     .join(", ");
 }
 
-async function sendTweet(tweetText: string): Promise<any> {
+async function uploadMedia(imageUrl: string): Promise<string> {
+  console.log("Uploading media:", imageUrl);
+  
+  // Download the image
+  const imageResponse = await fetch(imageUrl);
+  if (!imageResponse.ok) {
+    throw new Error(`Failed to download image: ${imageResponse.status}`);
+  }
+  
+  const imageBuffer = await imageResponse.arrayBuffer();
+  const imageData = new Uint8Array(imageBuffer);
+  
+  // Determine media type from URL or response headers
+  const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+  
+  const uploadUrl = "https://upload.twitter.com/1.1/media/upload.json";
+  const method = "POST";
+  const oauthHeader = generateOAuthHeader(method, uploadUrl);
+  
+  // Create form data for media upload
+  const formData = new FormData();
+  const blob = new Blob([imageData], { type: contentType });
+  formData.append('media', blob);
+  
+  console.log("Uploading to Twitter with OAuth header");
+  
+  const uploadResponse = await fetch(uploadUrl, {
+    method: method,
+    headers: {
+      Authorization: oauthHeader,
+    },
+    body: formData,
+  });
+
+  const uploadResponseText = await uploadResponse.text();
+  console.log("Media upload response:", uploadResponseText);
+
+  if (!uploadResponse.ok) {
+    throw new Error(`Media upload failed: ${uploadResponse.status}, body: ${uploadResponseText}`);
+  }
+
+  const uploadResult = JSON.parse(uploadResponseText);
+  return uploadResult.media_id_string;
+}
+
+async function sendTweet(tweetText: string, mediaIds?: string[]): Promise<any> {
   const url = "https://api.x.com/2/tweets";
   const method = "POST";
-  const params = { text: tweetText };
+  
+  const params: any = { text: tweetText };
+  
+  // Add media if provided
+  if (mediaIds && mediaIds.length > 0) {
+    params.media = { media_ids: mediaIds };
+    console.log("Including media in tweet:", mediaIds);
+  }
 
   const oauthHeader = generateOAuthHeader(method, url);
   console.log("Posting tweet:", tweetText);
@@ -95,8 +147,8 @@ Deno.serve(async (req) => {
   try {
     validateEnvironmentVariables();
     
-    const { postId, content } = await req.json();
-    console.log("Processing post:", postId);
+    const { postId, content, imageUrl } = await req.json();
+    console.log("Processing post:", postId, "with image:", !!imageUrl);
 
     // Update post status to 'publishing'
     await supabase
@@ -104,12 +156,28 @@ Deno.serve(async (req) => {
       .update({ status: 'publishing' })
       .eq('id', postId);
 
-    // Send tweet
-    const tweetResult = await sendTweet(content);
+    let mediaIds: string[] = [];
+    
+    // Upload media if image URL is provided
+    if (imageUrl) {
+      try {
+        console.log("Uploading media for post:", postId);
+        const mediaId = await uploadMedia(imageUrl);
+        mediaIds = [mediaId];
+        console.log("Media uploaded successfully:", mediaId);
+      } catch (mediaError) {
+        console.error("Media upload failed:", mediaError);
+        // Continue without media - post text only
+        console.log("Continuing with text-only tweet due to media upload failure");
+      }
+    }
+
+    // Send tweet with or without media
+    const tweetResult = await sendTweet(content, mediaIds.length > 0 ? mediaIds : undefined);
     const tweetId = tweetResult.data.id;
     const tweetUrl = `https://x.com/user/status/${tweetId}`;
 
-    console.log("Tweet posted successfully:", tweetId);
+    console.log("Tweet posted successfully:", tweetId, "with media count:", mediaIds.length);
 
     // Get the original post data
     const { data: originalPost } = await supabase
@@ -152,7 +220,8 @@ Deno.serve(async (req) => {
         success: true, 
         tweetId, 
         tweetUrl,
-        message: 'Tweet posted successfully' 
+        mediaCount: mediaIds.length,
+        message: `Tweet posted successfully${mediaIds.length > 0 ? ' with media' : ''}` 
       }),
       { 
         headers: { 
