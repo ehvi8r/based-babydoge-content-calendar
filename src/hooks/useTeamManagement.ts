@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -29,8 +30,14 @@ export const useTeamManagement = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const loadTeamData = async () => {
+  const loadTeamData = async (forceRefresh = false) => {
     try {
+      if (forceRefresh) {
+        console.log('🔄 Force refreshing team data...');
+      }
+      
+      setLoading(true);
+
       // Load pending invitations
       const { data: invitationData, error: invitationError } = await supabase
         .from('team_invitations')
@@ -41,54 +48,79 @@ export const useTeamManagement = () => {
       if (invitationError) {
         console.error('Error loading invitations:', invitationError);
       } else {
+        console.log('📧 Loaded invitations:', invitationData?.length || 0);
         setInvitations(invitationData || []);
       }
 
-      // Load team members
+      // Load ALL user profiles from the database
+      console.log('👥 Fetching user profiles...');
       const { data: profilesData, error: profilesError } = await supabase
         .from('user_profiles')
         .select('id, email, full_name, created_at')
         .order('created_at', { ascending: true });
 
+      console.log('📊 Raw profiles data:', profilesData);
+      console.log('📈 Number of profiles found:', profilesData?.length);
+
       if (profilesError) {
-        console.error('Error loading user profiles:', profilesError);
+        console.error('❌ Error loading user profiles:', profilesError);
         setTeamMembers([]);
         setLoading(false);
         return;
       }
 
       // Get roles for all users
+      console.log('🔑 Fetching user roles...');
       const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
 
+      console.log('🎭 Raw roles data:', rolesData);
+      console.log('📊 Number of roles found:', rolesData?.length);
+
       if (rolesError) {
-        console.error('Error loading user roles:', rolesError);
+        console.error('❌ Error loading user roles:', rolesError);
         setTeamMembers([]);
         setLoading(false);
         return;
       }
 
       // Combine profiles with roles
+      console.log('🔗 Combining profiles with roles...');
       const formattedMembers = (profilesData || []).map(profile => {
         const userRole = rolesData?.find(role => role.user_id === profile.id);
-        return {
+        console.log(`👤 Processing: ${profile.email} (ID: ${profile.id})`);
+        console.log(`🎭 Found role:`, userRole);
+        
+        const member = {
           id: profile.id,
           email: profile.email,
           full_name: profile.full_name,
           role: userRole?.role || 'user' as UserRole,
           created_at: profile.created_at
         };
+        
+        console.log(`✅ Formatted member:`, member);
+        return member;
       });
 
+      console.log('🎯 Final team members array:', formattedMembers);
+      console.log('📊 Setting team members count:', formattedMembers.length);
+      
       setTeamMembers(formattedMembers);
     } catch (error) {
-      console.error('Error loading team data:', error);
+      console.error('💥 Critical error loading team data:', error);
       setInvitations([]);
       setTeamMembers([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Manual refresh function that can be called externally
+  const refreshTeamData = () => {
+    console.log('🔄 Manual refresh triggered');
+    loadTeamData(true);
   };
 
   const inviteTeamMember = async (email: string, role: UserRole = 'team_member') => {
@@ -156,11 +188,15 @@ export const useTeamManagement = () => {
   };
 
   useEffect(() => {
+    console.log('🚀 useTeamManagement hook initializing...');
     loadTeamData();
 
     // Create unique channel names to avoid conflicts
     const invitationChannelName = `team_invitations_changes_${Date.now()}_${Math.random()}`;
     const rolesChannelName = `user_roles_changes_${Date.now()}_${Math.random()}`;
+    const profilesChannelName = `user_profiles_changes_${Date.now()}_${Math.random()}`;
+
+    console.log('📡 Setting up realtime subscriptions...');
 
     // Subscribe to changes
     const invitationChannel = supabase
@@ -173,6 +209,7 @@ export const useTeamManagement = () => {
           table: 'team_invitations'
         },
         () => {
+          console.log('📧 Team invitations changed, refreshing...');
           loadTeamData();
         }
       )
@@ -188,14 +225,33 @@ export const useTeamManagement = () => {
           table: 'user_roles'
         },
         () => {
+          console.log('🎭 User roles changed, refreshing...');
+          loadTeamData();
+        }
+      )
+      .subscribe();
+
+    const profilesChannel = supabase
+      .channel(profilesChannelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_profiles'
+        },
+        () => {
+          console.log('👥 User profiles changed, refreshing...');
           loadTeamData();
         }
       )
       .subscribe();
 
     return () => {
+      console.log('🧹 Cleaning up subscriptions...');
       supabase.removeChannel(invitationChannel);
       supabase.removeChannel(rolesChannel);
+      supabase.removeChannel(profilesChannel);
     };
   }, []);
 
@@ -205,6 +261,7 @@ export const useTeamManagement = () => {
     loading,
     inviteTeamMember,
     acceptInvitation,
-    loadTeamData
+    loadTeamData,
+    refreshTeamData
   };
 };

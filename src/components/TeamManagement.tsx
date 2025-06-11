@@ -5,15 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Users, Mail, Plus, Clock } from 'lucide-react';
+import { Users, Mail, Plus, Clock, RefreshCw } from 'lucide-react';
 import { useTeamManagement } from '@/hooks/useTeamManagement';
 import { useUserRole } from '@/hooks/useUserRole';
 
 const TeamManagement = () => {
-  const { invitations, teamMembers, inviteTeamMember, loading } = useTeamManagement();
+  const { invitations, teamMembers, inviteTeamMember, loading, refreshTeamData } = useTeamManagement();
   const { isAdmin } = useUserRole();
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   if (!isAdmin) {
     return null; // Only admins can manage team
@@ -28,6 +29,12 @@ const TeamManagement = () => {
       setEmail('');
     }
     setSending(false);
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refreshTeamData();
+    setTimeout(() => setRefreshing(false), 1000); // Visual feedback
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -54,12 +61,24 @@ const TeamManagement = () => {
   return (
     <Card className="bg-slate-800/50 border-blue-500/20">
       <CardHeader>
-        <CardTitle className="text-white flex items-center gap-2">
-          <Users className="text-blue-400" size={20} />
-          Team Management
-          <Badge variant="secondary" className="bg-blue-600 text-white">
-            Admin Only
-          </Badge>
+        <CardTitle className="text-white flex items-center gap-2 justify-between">
+          <div className="flex items-center gap-2">
+            <Users className="text-blue-400" size={20} />
+            Team Management
+            <Badge variant="secondary" className="bg-blue-600 text-white">
+              Admin Only
+            </Badge>
+          </div>
+          <Button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            variant="outline"
+            size="sm"
+            className="border-slate-600 text-slate-300 hover:bg-slate-700"
+          >
+            <RefreshCw size={16} className={`mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -96,6 +115,11 @@ const TeamManagement = () => {
           <p className="text-xs text-slate-400">
             Team members will have read-only access to your content and will use your API keys.
           </p>
+        </div>
+
+        {/* Debug Info */}
+        <div className="text-xs text-slate-500 bg-slate-900/30 p-2 rounded">
+          Debug: Found {teamMembers.length} team members, {invitations.length} pending invitations
         </div>
 
         {/* Pending Invitations */}
@@ -138,7 +162,7 @@ const TeamManagement = () => {
           </h3>
           {teamMembers.length === 0 ? (
             <div className="text-center py-6 text-slate-400">
-              No team members yet
+              No team members found. Try clicking the refresh button above.
             </div>
           ) : (
             <div className="space-y-2">
@@ -154,6 +178,9 @@ const TeamManagement = () => {
                       )}
                       <div className="text-xs text-slate-400">
                         Joined: {new Date(member.created_at).toLocaleDateString()}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        ID: {member.id}
                       </div>
                     </div>
                     <Badge variant="secondary" className={getRoleBadgeColor(member.role)}>
