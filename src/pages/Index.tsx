@@ -7,6 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import ContentScheduler from "@/components/ContentScheduler";
 import Analytics from "@/components/Analytics";
+import CalendarView from "@/components/CalendarView";
+import { useScheduledPosts } from '@/hooks/useScheduledPosts';
 
 interface IndexProps {
   user: User;
@@ -14,6 +16,7 @@ interface IndexProps {
 
 const Index = ({ user }: IndexProps) => {
   const { toast } = useToast();
+  const { scheduledPosts } = useScheduledPosts();
 
   const handleSignOut = async () => {
     try {
@@ -74,12 +77,18 @@ const Index = ({ user }: IndexProps) => {
 
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="scheduler" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-slate-800/50 border border-blue-500/20 mb-8">
+          <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 border border-blue-500/20 mb-8">
             <TabsTrigger 
               value="scheduler" 
               className="text-white data-[state=active]:bg-blue-600 data-[state=active]:text-white"
             >
               Content Scheduler
+            </TabsTrigger>
+            <TabsTrigger 
+              value="calendar" 
+              className="text-white data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            >
+              Calendar View
             </TabsTrigger>
             <TabsTrigger 
               value="analytics" 
@@ -91,6 +100,10 @@ const Index = ({ user }: IndexProps) => {
           
           <TabsContent value="scheduler">
             <ContentScheduler />
+          </TabsContent>
+          
+          <TabsContent value="calendar">
+            <CalendarView scheduledPosts={scheduledPosts} />
           </TabsContent>
           
           <TabsContent value="analytics">
