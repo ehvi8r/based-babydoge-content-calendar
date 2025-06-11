@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import MediaUpload from './MediaUpload';
+import PostMediaUpload from './PostMediaUpload';
 
 interface SinglePostFormProps {
   onPostScheduled?: () => void;
@@ -191,7 +191,7 @@ const SinglePostForm = ({ onPostScheduled }: SinglePostFormProps) => {
           />
         </div>
 
-        <MediaUpload onMediaChange={setMediaUrls} />
+        <PostMediaUpload onMediaChange={setMediaUrls} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>

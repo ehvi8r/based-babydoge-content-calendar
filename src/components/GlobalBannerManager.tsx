@@ -7,7 +7,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Plus, Eye, EyeOff, Image } from 'lucide-react';
 import { useGlobalBanners } from '@/hooks/useGlobalBanners';
 import { useUserRole } from '@/hooks/useUserRole';
-import MediaUpload from '@/components/MediaUpload';
+import BannerUpload from '@/components/BannerUpload';
 
 const GlobalBannerManager = () => {
   const { banners, createBanner, updateBanner, loading } = useGlobalBanners();
@@ -40,13 +40,9 @@ const GlobalBannerManager = () => {
     }
   };
 
-  const handleMediaChange = (urls: string[]) => {
-    console.log('GlobalBannerManager: Media change callback received:', urls);
-    if (urls.length > 0) {
-      setNewBanner(prev => ({ ...prev, imageUrl: urls[0] }));
-    } else {
-      setNewBanner(prev => ({ ...prev, imageUrl: '' }));
-    }
+  const handleBannerChange = (imageUrl: string) => {
+    console.log('GlobalBannerManager: Banner change callback received:', imageUrl);
+    setNewBanner(prev => ({ ...prev, imageUrl }));
   };
 
   const toggleBannerActive = async (id: string, currentStatus: boolean) => {
@@ -94,18 +90,15 @@ const GlobalBannerManager = () => {
             <div className="space-y-4 p-4 bg-slate-700/50 rounded-lg">
               <h3 className="text-white font-medium">Create New Banner</h3>
               <div className="space-y-3">
-                <div>
-                  <Label className="text-slate-300">Upload Banner Image</Label>
-                  <MediaUpload 
-                    onMediaChange={handleMediaChange}
-                    initialFiles={newBanner.imageUrl ? [newBanner.imageUrl] : []}
-                  />
-                </div>
+                <BannerUpload 
+                  onBannerChange={handleBannerChange}
+                  initialBanner={newBanner.imageUrl}
+                />
                 
                 <div>
-                  <Label htmlFor="imageUrl" className="text-slate-300">Image URL (or upload above)</Label>
+                  <Label htmlFor="bannerImageUrl" className="text-slate-300">Image URL (or upload above)</Label>
                   <Input
-                    id="imageUrl"
+                    id="bannerImageUrl"
                     value={newBanner.imageUrl}
                     onChange={(e) => setNewBanner(prev => ({ ...prev, imageUrl: e.target.value }))}
                     placeholder="https://example.com/banner.jpg"
@@ -113,9 +106,9 @@ const GlobalBannerManager = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="linkUrl" className="text-slate-300">Link URL</Label>
+                  <Label htmlFor="bannerLinkUrl" className="text-slate-300">Link URL</Label>
                   <Input
-                    id="linkUrl"
+                    id="bannerLinkUrl"
                     value={newBanner.linkUrl}
                     onChange={(e) => setNewBanner(prev => ({ ...prev, linkUrl: e.target.value }))}
                     placeholder="https://babydoge20.com"
@@ -123,9 +116,9 @@ const GlobalBannerManager = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="title" className="text-slate-300">Title (Optional)</Label>
+                  <Label htmlFor="bannerTitle" className="text-slate-300">Title (Optional)</Label>
                   <Input
-                    id="title"
+                    id="bannerTitle"
                     value={newBanner.title}
                     onChange={(e) => setNewBanner(prev => ({ ...prev, title: e.target.value }))}
                     placeholder="Banner title"
