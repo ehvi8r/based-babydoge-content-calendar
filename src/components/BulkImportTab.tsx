@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import SpreadsheetUpload from './SpreadsheetUpload';
 import ImportedPostsList from './ImportedPostsList';
@@ -36,6 +35,35 @@ const BulkImportTab = ({ onPostsUpdate }: BulkImportTabProps) => {
       }
       return post;
     });
+  };
+
+  // Helper function to generate content hash using the database function
+  const generateContentHash = async (content: string, hashtags: string = ''): Promise<string> => {
+    try {
+      const { data, error } = await supabase
+        .rpc('generate_content_hash', {
+          content_text: content,
+          hashtags_text: hashtags || null
+        });
+
+      if (error) {
+        console.error('Error generating content hash:', error);
+        // Fallback to a simple hash if the database function fails
+        return Math.abs(content.split('').reduce((a, b) => {
+          a = ((a << 5) - a) + b.charCodeAt(0);
+          return a & a;
+        }, 0)).toString(16);
+      }
+
+      return data || '';
+    } catch (error) {
+      console.error('Error calling generate_content_hash:', error);
+      // Fallback hash
+      return Math.abs(content.split('').reduce((a, b) => {
+        a = ((a << 5) - a) + b.charCodeAt(0);
+        return a & a;
+      }, 0)).toString(16);
+    }
   };
 
   // Load imported posts from localStorage on mount
@@ -105,6 +133,9 @@ const BulkImportTab = ({ onPostsUpdate }: BulkImportTabProps) => {
       // Clean the image URL - if it's a localStorage reference, set it to empty
       const cleanImageUrl = isLocalStorageImage(importedPost.imageUrl) ? '' : importedPost.imageUrl;
 
+      // Generate content hash
+      const contentHash = await generateContentHash(importedPost.content, importedPost.hashtags);
+
       const { error } = await supabase
         .from('scheduled_posts')
         .insert({
@@ -113,7 +144,8 @@ const BulkImportTab = ({ onPostsUpdate }: BulkImportTabProps) => {
           hashtags: importedPost.hashtags,
           image_url: cleanImageUrl,
           scheduled_for: scheduledFor.toISOString(),
-          status: 'scheduled'
+          status: 'scheduled' as const,
+          content_hash: contentHash
         });
 
       if (error) {
@@ -176,9 +208,12 @@ const BulkImportTab = ({ onPostsUpdate }: BulkImportTabProps) => {
         return;
       }
 
-      const postsToInsert = validPosts.map(post => {
+      const postsToInsert = await Promise.all(validPosts.map(async (post) => {
         // Clean the image URL - if it's a localStorage reference, set it to empty
         const cleanImageUrl = isLocalStorageImage(post.imageUrl) ? '' : post.imageUrl;
+        
+        // Generate content hash for each post
+        const contentHash = await generateContentHash(post.content, post.hashtags);
         
         return {
           user_id: user.id,
@@ -186,9 +221,10 @@ const BulkImportTab = ({ onPostsUpdate }: BulkImportTabProps) => {
           hashtags: post.hashtags,
           image_url: cleanImageUrl,
           scheduled_for: new Date(`${post.date}T${post.time}`).toISOString(),
-          status: 'scheduled' as const
+          status: 'scheduled' as const,
+          content_hash: contentHash
         };
-      });
+      }));
 
       const { error } = await supabase
         .from('scheduled_posts')

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,6 +27,35 @@ const SinglePostForm = ({ onPostScheduled }: SinglePostFormProps) => {
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+
+  // Helper function to generate content hash using the database function
+  const generateContentHash = async (content: string, hashtags: string = ''): Promise<string> => {
+    try {
+      const { data, error } = await supabase
+        .rpc('generate_content_hash', {
+          content_text: content,
+          hashtags_text: hashtags || null
+        });
+
+      if (error) {
+        console.error('Error generating content hash:', error);
+        // Fallback to a simple hash if the database function fails
+        return Math.abs(content.split('').reduce((a, b) => {
+          a = ((a << 5) - a) + b.charCodeAt(0);
+          return a & a;
+        }, 0)).toString(16);
+      }
+
+      return data || '';
+    } catch (error) {
+      console.error('Error calling generate_content_hash:', error);
+      // Fallback hash
+      return Math.abs(content.split('').reduce((a, b) => {
+        a = ((a << 5) - a) + b.charCodeAt(0);
+        return a & a;
+      }, 0)).toString(16);
+    }
+  };
 
   const isValidFutureDateTime = (date: Date, time: string): boolean => {
     const scheduledDateTime = new Date(`${format(date, 'yyyy-MM-dd')}T${time}`);
@@ -71,6 +99,9 @@ const SinglePostForm = ({ onPostScheduled }: SinglePostFormProps) => {
 
       const scheduledFor = new Date(`${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`);
 
+      // Generate content hash
+      const contentHash = await generateContentHash(content, hashtags);
+
       const { error } = await supabase
         .from('scheduled_posts')
         .insert({
@@ -79,7 +110,8 @@ const SinglePostForm = ({ onPostScheduled }: SinglePostFormProps) => {
           hashtags,
           image_url: mediaUrls.length > 0 ? mediaUrls[0] : null, // Use first media URL
           scheduled_for: scheduledFor.toISOString(),
-          status: 'scheduled'
+          status: 'scheduled' as const,
+          content_hash: contentHash
         });
 
       if (error) {
