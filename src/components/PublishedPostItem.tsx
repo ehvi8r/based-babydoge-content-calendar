@@ -80,10 +80,21 @@ const PublishedPostItem = ({ post }: PublishedPostItemProps) => {
       
       <div className="text-xs text-slate-400">
         Published: {formatDate(post.published_at)}
-        {post.tweet_id && (
-          <div className={isLikelyInvalidTweet ? 'text-red-400' : ''}>
-            Tweet ID: {post.tweet_id}
-            {isLikelyInvalidTweet && <span className="ml-1">(possibly invalid)</span>}
+        {post.tweet_url && !isLikelyInvalidTweet && (
+          <div className="mt-1">
+            <a 
+              href={post.tweet_url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:text-blue-300 underline break-all"
+            >
+              View on X: {post.tweet_url}
+            </a>
+          </div>
+        )}
+        {post.tweet_id && isLikelyInvalidTweet && (
+          <div className="text-red-400 mt-1">
+            Tweet ID: {post.tweet_id} (possibly invalid)
           </div>
         )}
       </div>
