@@ -44,7 +44,16 @@ const Index = ({ user }: IndexProps) => {
       {/* Header */}
       <div className="border-b border-blue-500/20 bg-slate-800/50 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-white">BabyDoge Social Scheduler</h1>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden">
+              <img 
+                src="https://babydoge20.com/assets/images/BABYlogo.png" 
+                alt="Based BabyDoge Logo" 
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <h1 className="text-2xl font-bold text-white">Based BabyDoge Content Calendar</h1>
+          </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-slate-300">
               <UserIcon size={16} />
