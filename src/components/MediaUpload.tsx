@@ -20,9 +20,15 @@ const MediaUpload = ({ onMediaChange, initialFiles = [] }: MediaUploadProps) => 
 
   // Update internal state when initialFiles prop changes
   useEffect(() => {
-    console.log('MediaUpload: initialFiles changed:', initialFiles);
-    setUploadedFiles(initialFiles);
-  }, [initialFiles]);
+    // Only update if the arrays are actually different
+    const arraysEqual = initialFiles.length === uploadedFiles.length && 
+      initialFiles.every((file, index) => file === uploadedFiles[index]);
+    
+    if (!arraysEqual) {
+      console.log('MediaUpload: Updating uploadedFiles from initialFiles:', initialFiles);
+      setUploadedFiles(initialFiles);
+    }
+  }, [initialFiles.length, initialFiles.join(',')]); // Use stable dependencies
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
