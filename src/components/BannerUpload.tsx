@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,7 @@ interface BannerUploadProps {
 const BannerUpload = ({ onBannerUploaded, currentImageUrl }: BannerUploadProps) => {
   const [uploading, setUploading] = useState(false);
   const [linkUrl, setLinkUrl] = useState('https://babydoge20.com');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const uploadBanner = async (file: File) => {
@@ -88,6 +89,10 @@ const BannerUpload = ({ onBannerUploaded, currentImageUrl }: BannerUploadProps) 
     }
   };
 
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
   const removeBanner = () => {
     onBannerUploaded('');
     toast({
@@ -129,25 +134,29 @@ const BannerUpload = ({ onBannerUploaded, currentImageUrl }: BannerUploadProps) 
 
       {/* Upload new banner */}
       <div className="space-y-2">
-        <Label htmlFor="banner-upload" className="text-slate-300">
+        <Label className="text-slate-300">
           Upload New Banner Image
         </Label>
         <div className="flex items-center gap-2">
           <Input
-            id="banner-upload"
+            ref={fileInputRef}
             type="file"
             accept="image/jpeg,image/png,image/gif,image/webp"
             onChange={handleFileChange}
             disabled={uploading}
-            className="flex-1 bg-slate-700 border-slate-600 text-white"
+            className="hidden"
           />
-          <Button disabled={uploading} size="sm">
+          <Button
+            onClick={handleUploadClick}
+            disabled={uploading}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
             {uploading ? (
               <>Uploading...</>
             ) : (
               <>
                 <Upload size={16} className="mr-2" />
-                Upload
+                Choose & Upload Image
               </>
             )}
           </Button>
