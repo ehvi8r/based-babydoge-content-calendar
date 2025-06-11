@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ScheduledPost {
   id: string;
@@ -14,15 +15,43 @@ export const useScheduledPosts = () => {
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadScheduledPosts = () => {
+  const loadScheduledPosts = async () => {
     try {
-      const saved = localStorage.getItem('scheduledPosts');
-      if (saved) {
-        const posts = JSON.parse(saved);
-        console.log('Loaded scheduled posts for calendar:', posts);
-        setScheduledPosts(posts);
-      } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.log('No user found, setting empty posts array');
         setScheduledPosts([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data: posts, error } = await supabase
+        .from('scheduled_posts')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'scheduled')
+        .order('scheduled_for', { ascending: true });
+
+      if (error) {
+        console.error('Error loading scheduled posts:', error);
+        setScheduledPosts([]);
+      } else {
+        // Transform Supabase data to match calendar format
+        const transformedPosts = posts.map(post => {
+          const scheduledDate = new Date(post.scheduled_for);
+          return {
+            id: post.id,
+            content: post.content,
+            date: scheduledDate.toISOString().split('T')[0], // YYYY-MM-DD format
+            time: scheduledDate.toTimeString().slice(0, 5), // HH:MM format
+            status: post.status,
+            hashtags: post.hashtags || ''
+          };
+        });
+
+        console.log('Loaded scheduled posts for calendar:', transformedPosts);
+        setScheduledPosts(transformedPosts);
       }
     } catch (error) {
       console.error('Error loading scheduled posts:', error);
@@ -35,15 +64,33 @@ export const useScheduledPosts = () => {
   useEffect(() => {
     loadScheduledPosts();
 
-    // Listen for updates to scheduled posts
+    // Set up real-time subscription for scheduled posts
+    const channel = supabase
+      .channel('scheduled_posts_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'scheduled_posts'
+        },
+        (payload) => {
+          console.log('Scheduled posts updated, reloading for calendar...', payload);
+          loadScheduledPosts();
+        }
+      )
+      .subscribe();
+
+    // Also listen for window events as fallback
     const handleScheduledPostsUpdate = () => {
-      console.log('Scheduled posts updated, reloading for calendar...');
+      console.log('Scheduled posts updated via window event, reloading for calendar...');
       loadScheduledPosts();
     };
 
     window.addEventListener('scheduledPostsUpdated', handleScheduledPostsUpdate);
     
     return () => {
+      supabase.removeChannel(channel);
       window.removeEventListener('scheduledPostsUpdated', handleScheduledPostsUpdate);
     };
   }, []);
