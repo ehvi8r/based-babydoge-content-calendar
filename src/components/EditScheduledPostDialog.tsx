@@ -7,12 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Edit } from 'lucide-react';
+import { CalendarIcon, Edit, Upload, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import MediaUpload from '@/components/MediaUpload';
 
 interface ScheduledPost {
   id: string;
@@ -36,9 +35,93 @@ const EditScheduledPostDialog = ({ post, onPostUpdate }: EditScheduledPostDialog
   const [hashtags, setHashtags] = useState(post.hashtags || '');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(post.scheduled_for));
   const [selectedTime, setSelectedTime] = useState(format(new Date(post.scheduled_for), 'HH:mm'));
-  const [imageUrls, setImageUrls] = useState<string[]>(post.image_url ? [post.image_url] : []);
+  const [imageUrl, setImageUrl] = useState(post.image_url || '');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState(post.image_url || '');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+
+  // Helper function to upload image to Supabase storage
+  const uploadImageToStorage = async (file: File): Promise<string> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+      .from('media-uploads')
+      .upload(fileName, file);
+
+    if (error) {
+      console.error('Upload error:', error);
+      throw error;
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('media-uploads')
+      .getPublicUrl(fileName);
+
+    return publicUrl;
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload only image files",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload images smaller than 10MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const uploadedUrl = await uploadImageToStorage(file);
+      setImageFile(file);
+      setImagePreview(uploadedUrl);
+      setImageUrl(uploadedUrl);
+      
+      toast({
+        title: "Image uploaded",
+        description: "Image has been uploaded successfully",
+      });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImageUrl('');
+    if (imagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImagePreview('');
+  };
 
   const handleUpdatePost = async () => {
     if (!content || !selectedDate || !selectedTime) {
@@ -70,7 +153,7 @@ const EditScheduledPostDialog = ({ post, onPostUpdate }: EditScheduledPostDialog
         .update({
           content,
           hashtags,
-          image_url: imageUrls.length > 0 ? imageUrls[0] : null,
+          image_url: imageUrl || null,
           scheduled_for: scheduledFor.toISOString(),
         })
         .eq('id', post.id);
@@ -105,8 +188,29 @@ const EditScheduledPostDialog = ({ post, onPostUpdate }: EditScheduledPostDialog
     }
   };
 
+  const handleCloseDialog = () => {
+    setOpen(false);
+    // Reset state to original values
+    setContent(post.content);
+    setHashtags(post.hashtags || '');
+    setSelectedDate(new Date(post.scheduled_for));
+    setSelectedTime(format(new Date(post.scheduled_for), 'HH:mm'));
+    setImageUrl(post.image_url || '');
+    setImageFile(null);
+    setImagePreview(post.image_url || '');
+    if (imagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(imagePreview);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(newOpen) => {
+      if (!newOpen) {
+        handleCloseDialog();
+      } else {
+        setOpen(newOpen);
+      }
+    }}>
       <DialogTrigger asChild>
         <Button 
           variant="ghost" 
@@ -145,11 +249,75 @@ const EditScheduledPostDialog = ({ post, onPostUpdate }: EditScheduledPostDialog
             />
           </div>
 
-          {/* Media Upload Component with initial files */}
-          <MediaUpload 
-            onMediaChange={setImageUrls} 
-            initialFiles={post.image_url ? [post.image_url] : []}
-          />
+          <div>
+            <Label className="text-blue-200">Image</Label>
+            <div className="space-y-3">
+              <div className="flex gap-3 items-center">
+                <Label htmlFor="image-upload" className="cursor-pointer">
+                  <div className="flex items-center justify-center p-3 border-2 border-dashed border-orange-500/70 rounded-lg hover:border-orange-400 transition-colors bg-orange-500/20 hover:bg-orange-500/30">
+                    <div className="text-center">
+                      <Upload className="mx-auto h-5 w-5 text-orange-300 mb-1" />
+                      <span className="text-xs text-orange-200 font-medium">
+                        {uploadingImage ? 'Uploading...' : 'Choose Image'}
+                      </span>
+                    </div>
+                  </div>
+                </Label>
+                <Input
+                  id="image-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={uploadingImage}
+                  className="hidden"
+                />
+                
+                {imagePreview && (
+                  <div className="relative">
+                    <img 
+                      src={imagePreview} 
+                      alt="Preview" 
+                      className="w-16 h-16 object-cover rounded border border-slate-600"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={removeImage}
+                      className="absolute -top-2 -right-2 h-6 w-6 p-0 bg-red-500 hover:bg-red-600 text-white rounded-full"
+                    >
+                      <X size={12} />
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-px bg-slate-600"></div>
+                <span className="text-xs text-slate-400">OR</span>
+                <div className="flex-1 h-px bg-slate-600"></div>
+              </div>
+
+              <div>
+                <Label htmlFor="image-url" className="text-blue-200">Image URL</Label>
+                <Input
+                  id="image-url"
+                  value={imageUrl}
+                  onChange={(e) => {
+                    setImageUrl(e.target.value);
+                    setImagePreview(e.target.value);
+                    if (imageFile) {
+                      setImageFile(null);
+                      if (imagePreview.startsWith('blob:')) {
+                        URL.revokeObjectURL(imagePreview);
+                      }
+                    }
+                  }}
+                  placeholder="https://example.com/image.jpg"
+                  className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                />
+              </div>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -195,14 +363,14 @@ const EditScheduledPostDialog = ({ post, onPostUpdate }: EditScheduledPostDialog
           <div className="flex gap-3 pt-4">
             <Button 
               onClick={handleUpdatePost}
-              disabled={isSubmitting}
+              disabled={isSubmitting || uploadingImage}
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
             >
               {isSubmitting ? 'Updating...' : 'Update Post'}
             </Button>
             <Button 
               variant="outline" 
-              onClick={() => setOpen(false)}
+              onClick={handleCloseDialog}
               className="border-slate-600 text-slate-300 hover:bg-slate-700"
             >
               Cancel
