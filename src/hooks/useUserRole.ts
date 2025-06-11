@@ -24,13 +24,17 @@ export const useUserRole = () => {
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (error) {
           console.error('Error loading user role:', error);
           setUserRole('user'); // Default to user role
-        } else {
+        } else if (data) {
           setUserRole(data.role);
+        } else {
+          // No role found, default to user
+          console.log('No role found for user, defaulting to user role');
+          setUserRole('user');
         }
       } catch (error) {
         console.error('Error loading user role:', error);

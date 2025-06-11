@@ -45,7 +45,7 @@ export const useTeamManagement = () => {
         setInvitations(invitationData || []);
       }
 
-      // Load team members (users with roles)
+      // Load team members with better error handling
       const { data: memberData, error: memberError } = await supabase
         .from('user_profiles')
         .select(`
@@ -53,12 +53,13 @@ export const useTeamManagement = () => {
           email,
           full_name,
           created_at,
-          user_roles (role)
+          user_roles!inner (role)
         `)
-        .not('user_roles.role', 'is', null);
+        .order('created_at', { ascending: true });
 
       if (memberError) {
         console.error('Error loading team members:', memberError);
+        setTeamMembers([]);
       } else {
         const formattedMembers = memberData?.map(member => ({
           id: member.id,
@@ -71,6 +72,8 @@ export const useTeamManagement = () => {
       }
     } catch (error) {
       console.error('Error loading team data:', error);
+      setInvitations([]);
+      setTeamMembers([]);
     } finally {
       setLoading(false);
     }
