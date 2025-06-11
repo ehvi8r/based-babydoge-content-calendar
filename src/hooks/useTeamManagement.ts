@@ -44,17 +44,17 @@ export const useTeamManagement = () => {
         setInvitations(invitationData || []);
       }
 
-      // Load team members - use a simpler approach with separate queries
+      // Load team members
       const { data: profilesData, error: profilesError } = await supabase
         .from('user_profiles')
         .select('id, email, full_name, created_at')
         .order('created_at', { ascending: true });
 
-      console.log('Profiles query result:', { profilesData, profilesError });
-
       if (profilesError) {
         console.error('Error loading user profiles:', profilesError);
-        // Don't return early, continue with empty profiles
+        setTeamMembers([]);
+        setLoading(false);
+        return;
       }
 
       // Get roles for all users
@@ -62,34 +62,14 @@ export const useTeamManagement = () => {
         .from('user_roles')
         .select('user_id, role');
 
-      console.log('Roles query result:', { rolesData, rolesError });
-
       if (rolesError) {
         console.error('Error loading user roles:', rolesError);
-        // Don't return early, continue with empty roles
-      }
-
-      // If we have no profiles but we have roles, there's a data inconsistency
-      if ((!profilesData || profilesData.length === 0) && rolesData && rolesData.length > 0) {
-        console.warn('Data inconsistency: Found roles but no profiles. This suggests missing user profiles.');
-        
-        // Try to get user info directly from auth.users via a different approach
-        // Since we can't query auth.users directly, we'll show the roles without profile info
-        const formattedFromRoles = rolesData.map(role => ({
-          id: role.user_id,
-          email: `User ${role.user_id.slice(0, 8)}...`, // Fallback email
-          full_name: undefined,
-          role: role.role as UserRole,
-          created_at: new Date().toISOString()
-        }));
-        
-        console.log('Formatted members from roles only:', formattedFromRoles);
-        setTeamMembers(formattedFromRoles);
+        setTeamMembers([]);
         setLoading(false);
         return;
       }
 
-      // Combine profiles with roles - include all users, even those without explicit roles
+      // Combine profiles with roles
       const formattedMembers = (profilesData || []).map(profile => {
         const userRole = rolesData?.find(role => role.user_id === profile.id);
         return {
@@ -101,7 +81,6 @@ export const useTeamManagement = () => {
         };
       });
 
-      console.log('Formatted members:', formattedMembers);
       setTeamMembers(formattedMembers);
     } catch (error) {
       console.error('Error loading team data:', error);
