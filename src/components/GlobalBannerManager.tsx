@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +41,7 @@ const GlobalBannerManager = () => {
   };
 
   const handleMediaChange = (urls: string[]) => {
+    console.log('GlobalBannerManager: Media change callback received:', urls);
     if (urls.length > 0) {
       setNewBanner(prev => ({ ...prev, imageUrl: urls[0] }));
     } else {
@@ -74,6 +74,8 @@ const GlobalBannerManager = () => {
     );
   }
 
+  console.log('GlobalBannerManager render - newBanner.imageUrl:', newBanner.imageUrl);
+
   return (
     <Accordion type="single" collapsible className="w-full">
       <AccordionItem value="global-banner-management" className="bg-slate-800/50 border-blue-500/20 rounded-lg">
@@ -99,24 +101,6 @@ const GlobalBannerManager = () => {
                     initialFiles={newBanner.imageUrl ? [newBanner.imageUrl] : []}
                   />
                 </div>
-                
-                {/* Show current uploaded image preview */}
-                {newBanner.imageUrl && (
-                  <div className="mt-3">
-                    <Label className="text-slate-300">Current Banner Preview:</Label>
-                    <div className="mt-2 border border-slate-600 rounded overflow-hidden">
-                      <img 
-                        src={newBanner.imageUrl} 
-                        alt="Banner preview" 
-                        className="w-full h-20 object-cover"
-                        onError={(e) => {
-                          console.error('Error loading banner preview:', e);
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
                 
                 <div>
                   <Label htmlFor="imageUrl" className="text-slate-300">Image URL (or upload above)</Label>
