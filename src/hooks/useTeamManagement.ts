@@ -56,6 +56,8 @@ export const useTeamManagement = () => {
         return;
       }
 
+      console.log('Loaded profiles:', profilesData);
+
       // Get roles for all users
       const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
@@ -67,7 +69,9 @@ export const useTeamManagement = () => {
         return;
       }
 
-      // Combine profiles with roles
+      console.log('Loaded roles:', rolesData);
+
+      // Combine profiles with roles - include all users, even those without explicit roles
       const formattedMembers = profilesData?.map(profile => {
         const userRole = rolesData?.find(role => role.user_id === profile.id);
         return {
@@ -77,8 +81,9 @@ export const useTeamManagement = () => {
           role: userRole?.role || 'user' as UserRole,
           created_at: profile.created_at
         };
-      }).filter(member => member.role) || [];
+      }) || [];
 
+      console.log('Formatted members:', formattedMembers);
       setTeamMembers(formattedMembers);
     } catch (error) {
       console.error('Error loading team data:', error);
