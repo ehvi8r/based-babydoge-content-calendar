@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Clock, Trash2, RefreshCw, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useUserRole } from '@/hooks/useUserRole';
 import EditScheduledPostDialog from './EditScheduledPostDialog';
 
 interface ScheduledPost {
@@ -19,6 +19,7 @@ interface ScheduledPost {
   error_message?: string;
   retry_count: number;
   max_retries: number;
+  user_id?: string;
 }
 
 interface PublishedPost {
@@ -37,6 +38,7 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
   const [publishedPosts, setPublishedPosts] = useState<PublishedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { isTeamMember, isAdmin } = useUserRole();
 
   const loadPosts = async () => {
     try {
@@ -49,11 +51,10 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
         return;
       }
 
-      // Load scheduled posts
+      // Load scheduled posts - team members see admin's posts, others see their own
       const { data: scheduledData, error: scheduledError } = await supabase
         .from('scheduled_posts')
         .select('*')
-        .eq('user_id', user.id)
         .order('scheduled_for', { ascending: true });
 
       if (scheduledError) {
@@ -70,7 +71,6 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
       const { data: publishedData, error: publishedError } = await supabase
         .from('published_posts')
         .select('*')
-        .eq('user_id', user.id)
         .order('published_at', { ascending: false });
 
       if (publishedError) {
@@ -165,6 +165,11 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
     } catch (error) {
       console.error('Error retrying post:', error);
     }
+  };
+
+  // Check if user can modify a post (owners and admins only)
+  const canModifyPost = (post: ScheduledPost) => {
+    return isAdmin || (!isTeamMember && post.user_id);
   };
 
   const getStatusColor = (status: string, retryCount: number, maxRetries: number) => {
@@ -283,6 +288,11 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
         <CardTitle className="text-white flex items-center gap-2">
           <Clock className="text-blue-400" size={20} />
           Scheduled Posts ({posts.length})
+          {isTeamMember && (
+            <Badge variant="secondary" className="bg-blue-600 text-white text-xs">
+              Read Only
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -296,6 +306,7 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
               {posts.map((post) => {
                 const isMaxRetriesReached = post.retry_count >= post.max_retries;
                 const canRetry = isMaxRetriesReached || post.status === 'failed';
+                const canModify = canModifyPost(post);
                 
                 return (
                   <div key={post.id} className="bg-slate-700/50 rounded-lg p-3 space-y-2">
@@ -310,10 +321,11 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
                         </Badge>
                       </div>
                       <div className="flex gap-1">
-                        {post.status !== 'published' && (
+                        {/* Only show edit/delete buttons if user can modify */}
+                        {canModify && post.status !== 'published' && (
                           <EditScheduledPostDialog post={post} onPostUpdate={loadPosts} />
                         )}
-                        {canRetry && (
+                        {canModify && canRetry && (
                           <Button 
                             variant="ghost" 
                             size="sm" 
@@ -324,14 +336,16 @@ const ScheduledPosts = ({ onPostUpdate }: ScheduledPostsProps) => {
                             <RefreshCw size={12} />
                           </Button>
                         )}
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-6 w-6 p-0 text-red-400 hover:bg-red-400/20"
-                          onClick={() => handleDeletePost(post.id)}
-                        >
-                          <Trash2 size={12} />
-                        </Button>
+                        {canModify && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 w-6 p-0 text-red-400 hover:bg-red-400/20"
+                            onClick={() => handleDeletePost(post.id)}
+                          >
+                            <Trash2 size={12} />
+                          </Button>
+                        )}
                       </div>
                     </div>
                     

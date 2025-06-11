@@ -1,12 +1,14 @@
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { LogOut, User as UserIcon } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import ContentScheduler from "@/components/ContentScheduler";
 import Analytics from "@/components/Analytics";
 import CalendarView from "@/components/CalendarView";
+import UserRoleIndicator from "@/components/UserRoleIndicator";
 import { useScheduledPosts } from '@/hooks/useScheduledPosts';
 import { usePublishedPosts } from '@/hooks/usePublishedPosts';
 
@@ -59,8 +61,8 @@ const Index = ({ user }: IndexProps) => {
             <h1 className="text-2xl font-bold text-white">Based BabyDoge Content Calendar</h1>
           </div>
           <div className="flex items-center gap-4">
+            <UserRoleIndicator />
             <div className="flex items-center gap-2 text-slate-300">
-              <UserIcon size={16} />
               <span className="text-sm">{user.email}</span>
             </div>
             <Button
