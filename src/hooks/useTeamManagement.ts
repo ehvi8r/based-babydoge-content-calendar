@@ -50,6 +50,9 @@ export const useTeamManagement = () => {
         .select('id, email, full_name, created_at')
         .order('created_at', { ascending: true });
 
+      console.log('DEBUG - Profiles data:', profilesData);
+      console.log('DEBUG - Number of profiles:', profilesData?.length);
+
       if (profilesError) {
         console.error('Error loading user profiles:', profilesError);
         setTeamMembers([]);
@@ -62,6 +65,9 @@ export const useTeamManagement = () => {
         .from('user_roles')
         .select('user_id, role');
 
+      console.log('DEBUG - Roles data:', rolesData);
+      console.log('DEBUG - Number of roles:', rolesData?.length);
+
       if (rolesError) {
         console.error('Error loading user roles:', rolesError);
         setTeamMembers([]);
@@ -72,6 +78,7 @@ export const useTeamManagement = () => {
       // Combine profiles with roles
       const formattedMembers = (profilesData || []).map(profile => {
         const userRole = rolesData?.find(role => role.user_id === profile.id);
+        console.log(`DEBUG - Processing profile ${profile.email}, found role:`, userRole);
         return {
           id: profile.id,
           email: profile.email,
@@ -81,6 +88,7 @@ export const useTeamManagement = () => {
         };
       });
 
+      console.log('DEBUG - Final formatted members:', formattedMembers);
       setTeamMembers(formattedMembers);
     } catch (error) {
       console.error('Error loading team data:', error);
