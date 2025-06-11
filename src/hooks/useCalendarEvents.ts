@@ -28,7 +28,7 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const { toast } = useToast();
 
-  // Load events from localStorage on component mount and listen for updates
+  // Load events from localStorage on component mount
   useEffect(() => {
     const loadEvents = () => {
       const savedEvents = localStorage.getItem('calendarEvents');
@@ -39,11 +39,15 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
             ...event,
             date: new Date(event.date)
           }));
+          console.log('Loading calendar events from localStorage:', eventsWithDates);
           setEvents(eventsWithDates);
-          console.log('Loaded calendar events from localStorage:', eventsWithDates);
         } catch (error) {
           console.error('Error loading events from localStorage:', error);
+          setEvents([]);
         }
+      } else {
+        console.log('No calendar events found in localStorage');
+        setEvents([]);
       }
     };
 
@@ -51,6 +55,7 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
 
     // Listen for calendar events updates
     const handleCalendarEventsUpdate = () => {
+      console.log('Calendar events updated, reloading...');
       loadEvents();
     };
 
@@ -63,8 +68,10 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
 
   // Save events to localStorage whenever events change
   useEffect(() => {
-    localStorage.setItem('calendarEvents', JSON.stringify(events));
-    console.log('Saved calendar events to localStorage:', events);
+    if (events.length > 0) {
+      localStorage.setItem('calendarEvents', JSON.stringify(events));
+      console.log('Saved calendar events to localStorage:', events);
+    }
   }, [events]);
 
   const scheduledPostEvents: CalendarEvent[] = scheduledPosts.map(post => {
@@ -83,6 +90,7 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
   });
 
   const allEvents = [...scheduledPostEvents, ...events];
+  console.log('All calendar events combined:', allEvents);
 
   const addEvent = (newEvent: Omit<CalendarEvent, 'id'>) => {
     const eventToAdd: CalendarEvent = {
@@ -108,44 +116,19 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
 
   const updateEvent = (updatedEvent: CalendarEvent) => {
     if (updatedEvent.type === 'post') {
-      // For scheduled posts, update in localStorage and dispatch event
-      const savedPosts = localStorage.getItem('scheduledPosts');
-      if (savedPosts) {
-        try {
-          const posts = JSON.parse(savedPosts);
-          const postId = updatedEvent.id.replace('post-', '');
-          const updatedPosts = posts.map((post: any) => {
-            if (post.id === postId) {
-              return {
-                ...post,
-                content: updatedEvent.description || updatedEvent.content || post.content,
-                hashtags: updatedEvent.hashtags || post.hashtags
-              };
-            }
-            return post;
-          });
-          
-          localStorage.setItem('scheduledPosts', JSON.stringify(updatedPosts));
-          window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
-          
-          toast({
-            title: "Scheduled Post Updated",
-            description: "The scheduled post has been updated successfully",
-          });
-        } catch (error) {
-          console.error('Error updating scheduled post:', error);
-          toast({
-            title: "Error",
-            description: "Failed to update the scheduled post",
-            variant: "destructive",
-          });
-        }
-      }
+      // For scheduled posts, update in Supabase (handled by the scheduled posts hook)
+      toast({
+        title: "Note",
+        description: "Scheduled post updates are handled separately",
+      });
     } else {
       // For regular events
-      setEvents(events.map(event => 
-        event.id === updatedEvent.id ? updatedEvent : event
-      ));
+      setEvents(prevEvents => {
+        const updated = prevEvents.map(event => 
+          event.id === updatedEvent.id ? updatedEvent : event
+        );
+        return updated;
+      });
 
       // Dispatch event to notify other components
       window.dispatchEvent(new CustomEvent('calendarEventsUpdated'));
@@ -159,38 +142,16 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
 
   const deleteEvent = (eventToDelete: CalendarEvent) => {
     if (eventToDelete.type === 'post') {
-      // For scheduled posts, remove from localStorage and dispatch event
-      const savedPosts = localStorage.getItem('scheduledPosts');
-      if (savedPosts) {
-        try {
-          const posts = JSON.parse(savedPosts);
-          const postId = eventToDelete.id.replace('post-', '');
-          const updatedPosts = posts.filter((post: any) => post.id !== postId);
-          
-          if (updatedPosts.length === 0) {
-            localStorage.removeItem('scheduledPosts');
-          } else {
-            localStorage.setItem('scheduledPosts', JSON.stringify(updatedPosts));
-          }
-          
-          window.dispatchEvent(new CustomEvent('scheduledPostsUpdated'));
-          
-          toast({
-            title: "Scheduled Post Deleted",
-            description: "The scheduled post has been deleted successfully",
-          });
-        } catch (error) {
-          console.error('Error deleting scheduled post:', error);
-          toast({
-            title: "Error",
-            description: "Failed to delete the scheduled post",
-            variant: "destructive",
-          });
-        }
-      }
+      toast({
+        title: "Note",
+        description: "Scheduled posts cannot be deleted from the calendar",
+      });
     } else {
       // For regular events
-      setEvents(events.filter(event => event.id !== eventToDelete.id));
+      setEvents(prevEvents => {
+        const filtered = prevEvents.filter(event => event.id !== eventToDelete.id);
+        return filtered;
+      });
       
       // Dispatch event to notify other components
       window.dispatchEvent(new CustomEvent('calendarEventsUpdated'));
