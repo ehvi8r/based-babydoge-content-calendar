@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,12 +9,18 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface MediaUploadProps {
   onMediaChange: (urls: string[]) => void;
+  initialFiles?: string[];
 }
 
-const MediaUpload = ({ onMediaChange }: MediaUploadProps) => {
-  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+const MediaUpload = ({ onMediaChange, initialFiles = [] }: MediaUploadProps) => {
+  const [uploadedFiles, setUploadedFiles] = useState<string[]>(initialFiles);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
+
+  // Update internal state when initialFiles prop changes
+  useEffect(() => {
+    setUploadedFiles(initialFiles);
+  }, [initialFiles]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);

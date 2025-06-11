@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Edit, X, Image } from 'lucide-react';
+import { CalendarIcon, Edit } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -105,10 +105,6 @@ const EditScheduledPostDialog = ({ post, onPostUpdate }: EditScheduledPostDialog
     }
   };
 
-  const handleRemoveImage = () => {
-    setImageUrls([]);
-  };
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -149,30 +145,11 @@ const EditScheduledPostDialog = ({ post, onPostUpdate }: EditScheduledPostDialog
             />
           </div>
 
-          {/* Current Image Display */}
-          {imageUrls.length > 0 && (
-            <div className="space-y-2">
-              <Label className="text-blue-200">Current Image</Label>
-              <div className="relative inline-block">
-                <img 
-                  src={imageUrls[0]} 
-                  alt="Current post image"
-                  className="w-32 h-32 object-cover rounded-lg border border-slate-600"
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleRemoveImage}
-                  className="absolute -top-2 -right-2 h-6 w-6 p-0 bg-red-600 hover:bg-red-700 text-white rounded-full"
-                >
-                  <X size={12} />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Media Upload Component */}
-          <MediaUpload onMediaChange={setImageUrls} />
+          {/* Media Upload Component with initial files */}
+          <MediaUpload 
+            onMediaChange={setImageUrls} 
+            initialFiles={post.image_url ? [post.image_url] : []}
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
