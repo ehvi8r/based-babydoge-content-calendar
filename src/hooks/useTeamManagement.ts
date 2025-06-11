@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -45,31 +44,42 @@ export const useTeamManagement = () => {
         setInvitations(invitationData || []);
       }
 
-      // Load team members with better error handling
-      const { data: memberData, error: memberError } = await supabase
+      // Load team members - use a simpler approach with separate queries
+      const { data: profilesData, error: profilesError } = await supabase
         .from('user_profiles')
-        .select(`
-          id,
-          email,
-          full_name,
-          created_at,
-          user_roles!inner (role)
-        `)
+        .select('id, email, full_name, created_at')
         .order('created_at', { ascending: true });
 
-      if (memberError) {
-        console.error('Error loading team members:', memberError);
+      if (profilesError) {
+        console.error('Error loading user profiles:', profilesError);
         setTeamMembers([]);
-      } else {
-        const formattedMembers = memberData?.map(member => ({
-          id: member.id,
-          email: member.email,
-          full_name: member.full_name,
-          role: (member as any).user_roles?.role || 'user',
-          created_at: member.created_at
-        })) || [];
-        setTeamMembers(formattedMembers);
+        return;
       }
+
+      // Get roles for all users
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      if (rolesError) {
+        console.error('Error loading user roles:', rolesError);
+        setTeamMembers([]);
+        return;
+      }
+
+      // Combine profiles with roles
+      const formattedMembers = profilesData?.map(profile => {
+        const userRole = rolesData?.find(role => role.user_id === profile.id);
+        return {
+          id: profile.id,
+          email: profile.email,
+          full_name: profile.full_name,
+          role: userRole?.role || 'user' as UserRole,
+          created_at: profile.created_at
+        };
+      }).filter(member => member.role) || [];
+
+      setTeamMembers(formattedMembers);
     } catch (error) {
       console.error('Error loading team data:', error);
       setInvitations([]);
