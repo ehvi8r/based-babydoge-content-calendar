@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { parseISO, isValid, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { PublishedPost } from '@/hooks/usePublishedPosts';
 
 export interface CalendarEvent {
   id: string;
@@ -23,7 +24,7 @@ interface ScheduledPost {
   hashtags?: string;
 }
 
-export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
+export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = [], publishedPosts: PublishedPost[] = []) => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const { toast } = useToast();
 
@@ -123,7 +124,7 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
     console.log('Processing scheduled post for calendar:', post);
     const postDate = parseISO(post.date + 'T00:00:00');
     return {
-      id: `post-${post.id}`,
+      id: `scheduled-${post.id}`,
       title: post.content.substring(0, 50) + (post.content.length > 50 ? '...' : ''),
       type: 'post' as const,
       date: postDate,
@@ -134,7 +135,22 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
     };
   });
 
-  const allEvents = [...scheduledPostEvents, ...events];
+  const publishedPostEvents: CalendarEvent[] = publishedPosts.map(post => {
+    console.log('Processing published post for calendar:', post);
+    const postDate = parseISO(post.published_at);
+    return {
+      id: `published-${post.id}`,
+      title: post.content.substring(0, 50) + (post.content.length > 50 ? '...' : ''),
+      type: 'post' as const,
+      date: postDate,
+      time: format(postDate, 'HH:mm'),
+      description: post.content,
+      content: post.content,
+      hashtags: post.hashtags
+    };
+  });
+
+  const allEvents = [...scheduledPostEvents, ...publishedPostEvents, ...events];
   console.log('All calendar events combined:', allEvents);
 
   const addEvent = (newEvent: Omit<CalendarEvent, 'id'>) => {

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Plus } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { useCalendarEvents, CalendarEvent } from '@/hooks/useCalendarEvents';
+import { PublishedPost } from '@/hooks/usePublishedPosts';
 import CalendarGrid from './CalendarGrid';
 import EventDialogs from './EventDialogs';
 import CalendarLegend from './CalendarLegend';
@@ -18,18 +19,20 @@ interface CalendarViewProps {
     status: string;
     hashtags?: string;
   }>;
+  publishedPosts?: PublishedPost[];
 }
 
-const CalendarView = ({ scheduledPosts = [] }: CalendarViewProps) => {
+const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarViewProps) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [isEditEventOpen, setIsEditEventOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
 
-  const { allEvents, addEvent, updateEvent, deleteEvent } = useCalendarEvents(scheduledPosts);
+  const { allEvents, addEvent, updateEvent, deleteEvent } = useCalendarEvents(scheduledPosts, publishedPosts);
 
   console.log('CalendarView received scheduledPosts:', scheduledPosts);
+  console.log('CalendarView received publishedPosts:', publishedPosts);
   console.log('All events combined:', allEvents);
 
   // Listen for updates to scheduled posts

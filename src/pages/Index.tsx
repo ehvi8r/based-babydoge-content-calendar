@@ -1,4 +1,3 @@
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { LogOut, User as UserIcon } from "lucide-react";
@@ -9,6 +8,7 @@ import ContentScheduler from "@/components/ContentScheduler";
 import Analytics from "@/components/Analytics";
 import CalendarView from "@/components/CalendarView";
 import { useScheduledPosts } from '@/hooks/useScheduledPosts';
+import { usePublishedPosts } from '@/hooks/usePublishedPosts';
 
 interface IndexProps {
   user: User;
@@ -17,6 +17,7 @@ interface IndexProps {
 const Index = ({ user }: IndexProps) => {
   const { toast } = useToast();
   const { scheduledPosts } = useScheduledPosts();
+  const { publishedPosts } = usePublishedPosts();
 
   const handleSignOut = async () => {
     try {
@@ -103,7 +104,7 @@ const Index = ({ user }: IndexProps) => {
           </TabsContent>
           
           <TabsContent value="calendar">
-            <CalendarView scheduledPosts={scheduledPosts} />
+            <CalendarView scheduledPosts={scheduledPosts} publishedPosts={publishedPosts} />
           </TabsContent>
           
           <TabsContent value="analytics">
