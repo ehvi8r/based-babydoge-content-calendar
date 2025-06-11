@@ -1,5 +1,5 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,13 +10,19 @@ import { supabase } from '@/integrations/supabase/client';
 interface BannerUploadProps {
   onBannerUploaded: (imageUrl: string) => void;
   currentImageUrl?: string;
+  onLinkUrlChange: (linkUrl: string) => void;
+  currentLinkUrl: string;
 }
 
-const BannerUpload = ({ onBannerUploaded, currentImageUrl }: BannerUploadProps) => {
+const BannerUpload = ({ onBannerUploaded, currentImageUrl, onLinkUrlChange, currentLinkUrl }: BannerUploadProps) => {
   const [uploading, setUploading] = useState(false);
-  const [linkUrl, setLinkUrl] = useState('https://babydoge20.com');
+  const [linkUrl, setLinkUrl] = useState(currentLinkUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setLinkUrl(currentLinkUrl);
+  }, [currentLinkUrl]);
 
   const uploadBanner = async (file: File) => {
     try {
@@ -91,6 +97,11 @@ const BannerUpload = ({ onBannerUploaded, currentImageUrl }: BannerUploadProps) 
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleLinkUrlChange = (newUrl: string) => {
+    setLinkUrl(newUrl);
+    onLinkUrlChange(newUrl);
   };
 
   const removeBanner = () => {
@@ -176,7 +187,7 @@ const BannerUpload = ({ onBannerUploaded, currentImageUrl }: BannerUploadProps) 
             id="banner-link"
             type="url"
             value={linkUrl}
-            onChange={(e) => setLinkUrl(e.target.value)}
+            onChange={(e) => handleLinkUrlChange(e.target.value)}
             placeholder="https://example.com"
             className="flex-1 bg-slate-700 border-slate-600 text-white"
           />

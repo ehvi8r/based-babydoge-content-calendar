@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SinglePostForm from './SinglePostForm';
@@ -11,11 +12,11 @@ import ManualTrigger from './ManualTrigger';
 import SchedulingDebugPanel from './SchedulingDebugPanel';
 import AdBanner from './AdBanner';
 import BannerUpload from './BannerUpload';
+import { useBannerSettings } from '@/hooks/useBannerSettings';
 
 const ContentScheduler = () => {
   const [refreshKey, setRefreshKey] = useState(0);
-  const [bannerImageUrl, setBannerImageUrl] = useState('https://via.placeholder.com/728x90/1e293b/60a5fa?text=Your+Ad+Here');
-  const [bannerLinkUrl, setBannerLinkUrl] = useState('https://babydoge20.com');
+  const { bannerSettings, loading: bannerLoading, updateImageUrl, updateLinkUrl } = useBannerSettings();
 
   const optimalTimes = [
     { time: '9:00 AM', engagement: 'High', reason: 'Morning commute' },
@@ -25,10 +26,6 @@ const ContentScheduler = () => {
 
   const handlePostsUpdate = () => {
     setRefreshKey(prev => prev + 1);
-  };
-
-  const handleBannerUploaded = (imageUrl: string) => {
-    setBannerImageUrl(imageUrl || 'https://via.placeholder.com/728x90/1e293b/60a5fa?text=Your+Ad+Here');
   };
 
   useEffect(() => {
@@ -45,6 +42,14 @@ const ContentScheduler = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  if (bannerLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -82,15 +87,17 @@ const ContentScheduler = () => {
 
         {/* Banner Upload Component */}
         <BannerUpload
-          onBannerUploaded={handleBannerUploaded}
-          currentImageUrl={bannerImageUrl !== 'https://via.placeholder.com/728x90/1e293b/60a5fa?text=Your+Ad+Here' ? bannerImageUrl : undefined}
+          onBannerUploaded={updateImageUrl}
+          currentImageUrl={bannerSettings.imageUrl}
+          onLinkUrlChange={updateLinkUrl}
+          currentLinkUrl={bannerSettings.linkUrl}
         />
 
         {/* Ad Banner */}
-        {bannerImageUrl && (
+        {bannerSettings.imageUrl && (
           <AdBanner
-            imageUrl={bannerImageUrl}
-            linkUrl={bannerLinkUrl}
+            imageUrl={bannerSettings.imageUrl}
+            linkUrl={bannerSettings.linkUrl}
             altText="BabyDoge Advertisement"
             title="Sponsored"
           />
