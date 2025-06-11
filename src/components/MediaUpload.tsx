@@ -17,10 +17,15 @@ const MediaUpload = ({ onMediaChange, initialFiles = [] }: MediaUploadProps) => 
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
-  // Update internal state when initialFiles prop changes
+  // Update internal state when initialFiles prop changes, but only if different
   useEffect(() => {
-    setUploadedFiles(initialFiles);
-  }, [initialFiles]);
+    const filesEqual = initialFiles.length === uploadedFiles.length && 
+      initialFiles.every((file, index) => file === uploadedFiles[index]);
+    
+    if (!filesEqual) {
+      setUploadedFiles(initialFiles);
+    }
+  }, [initialFiles.join(',')]); // Use join to create a stable dependency
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
