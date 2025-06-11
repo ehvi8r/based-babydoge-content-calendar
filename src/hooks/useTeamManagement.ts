@@ -50,29 +50,47 @@ export const useTeamManagement = () => {
         .select('id, email, full_name, created_at')
         .order('created_at', { ascending: true });
 
+      console.log('Profiles query result:', { profilesData, profilesError });
+
       if (profilesError) {
         console.error('Error loading user profiles:', profilesError);
-        setTeamMembers([]);
-        return;
+        // Don't return early, continue with empty profiles
       }
-
-      console.log('Loaded profiles:', profilesData);
 
       // Get roles for all users
       const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
 
+      console.log('Roles query result:', { rolesData, rolesError });
+
       if (rolesError) {
         console.error('Error loading user roles:', rolesError);
-        setTeamMembers([]);
+        // Don't return early, continue with empty roles
+      }
+
+      // If we have no profiles but we have roles, there's a data inconsistency
+      if ((!profilesData || profilesData.length === 0) && rolesData && rolesData.length > 0) {
+        console.warn('Data inconsistency: Found roles but no profiles. This suggests missing user profiles.');
+        
+        // Try to get user info directly from auth.users via a different approach
+        // Since we can't query auth.users directly, we'll show the roles without profile info
+        const formattedFromRoles = rolesData.map(role => ({
+          id: role.user_id,
+          email: `User ${role.user_id.slice(0, 8)}...`, // Fallback email
+          full_name: undefined,
+          role: role.role as UserRole,
+          created_at: new Date().toISOString()
+        }));
+        
+        console.log('Formatted members from roles only:', formattedFromRoles);
+        setTeamMembers(formattedFromRoles);
+        setLoading(false);
         return;
       }
 
-      console.log('Loaded roles:', rolesData);
-
       // Combine profiles with roles - include all users, even those without explicit roles
-      const formattedMembers = profilesData?.map(profile => {
+      const formattedMembers = (profilesData || []).map(profile => {
         const userRole = rolesData?.find(role => role.user_id === profile.id);
         return {
           id: profile.id,
@@ -81,7 +99,7 @@ export const useTeamManagement = () => {
           role: userRole?.role || 'user' as UserRole,
           created_at: profile.created_at
         };
-      }) || [];
+      });
 
       console.log('Formatted members:', formattedMembers);
       setTeamMembers(formattedMembers);
