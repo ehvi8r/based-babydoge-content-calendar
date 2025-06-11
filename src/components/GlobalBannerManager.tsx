@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Plus, Eye, EyeOff, Image } from 'lucide-react';
 import { useGlobalBanners } from '@/hooks/useGlobalBanners';
 import { useUserRole } from '@/hooks/useUserRole';
+import MediaUpload from '@/components/MediaUpload';
 
 const GlobalBannerManager = () => {
   const { banners, createBanner, updateBanner, loading } = useGlobalBanners();
@@ -36,6 +38,12 @@ const GlobalBannerManager = () => {
         linkUrl: 'https://babydoge20.com',
         title: ''
       });
+    }
+  };
+
+  const handleMediaChange = (urls: string[]) => {
+    if (urls.length > 0) {
+      setNewBanner(prev => ({ ...prev, imageUrl: urls[0] }));
     }
   };
 
@@ -83,7 +91,14 @@ const GlobalBannerManager = () => {
               <h3 className="text-white font-medium">Create New Banner</h3>
               <div className="space-y-3">
                 <div>
-                  <Label htmlFor="imageUrl" className="text-slate-300">Image URL</Label>
+                  <Label className="text-slate-300">Upload Banner Image</Label>
+                  <MediaUpload 
+                    onMediaChange={handleMediaChange}
+                    initialFiles={newBanner.imageUrl ? [newBanner.imageUrl] : []}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="imageUrl" className="text-slate-300">Image URL (or upload above)</Label>
                   <Input
                     id="imageUrl"
                     value={newBanner.imageUrl}
