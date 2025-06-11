@@ -6,9 +6,11 @@ import { Calendar, Plus } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { useCalendarEvents, CalendarEvent } from '@/hooks/useCalendarEvents';
 import { PublishedPost } from '@/hooks/usePublishedPosts';
+import { useGlobalBanners } from '@/hooks/useGlobalBanners';
 import CalendarGrid from './CalendarGrid';
 import EventDialogs from './EventDialogs';
 import CalendarLegend from './CalendarLegend';
+import AdBanner from './AdBanner';
 
 interface CalendarViewProps {
   scheduledPosts?: Array<{
@@ -30,6 +32,7 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
 
   const { allEvents, addEvent, updateEvent, deleteEvent } = useCalendarEvents(scheduledPosts, publishedPosts);
+  const { banners, loading: bannersLoading } = useGlobalBanners();
 
   console.log('CalendarView received scheduledPosts:', scheduledPosts);
   console.log('CalendarView received publishedPosts:', publishedPosts);
@@ -91,6 +94,9 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
       setCurrentDate(new Date());
     }
   };
+
+  // Get the first active banner
+  const activeBanner = banners.find(banner => banner.is_active);
 
   return (
     <div className="space-y-6">
@@ -162,6 +168,16 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
       />
 
       <CalendarLegend />
+
+      {/* Global Banner Display */}
+      {!bannersLoading && activeBanner && (
+        <AdBanner
+          imageUrl={activeBanner.image_url}
+          linkUrl={activeBanner.link_url}
+          altText={activeBanner.title || "BabyDoge Advertisement"}
+          title="Sponsored"
+        />
+      )}
     </div>
   );
 };

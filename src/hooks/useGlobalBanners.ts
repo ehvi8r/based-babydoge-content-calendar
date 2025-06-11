@@ -24,7 +24,6 @@ export const useGlobalBanners = () => {
       const { data, error } = await supabase
         .from('global_banners')
         .select('*')
-        .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -63,7 +62,7 @@ export const useGlobalBanners = () => {
           description: "Failed to create banner",
           variant: "destructive",
         });
-        return null;
+        return false;
       }
 
       toast({
@@ -71,10 +70,12 @@ export const useGlobalBanners = () => {
         description: "Banner created successfully",
       });
 
-      return data;
+      // Reload banners to update the list
+      await loadBanners();
+      return true;
     } catch (error) {
       console.error('Error creating banner:', error);
-      return null;
+      return false;
     }
   };
 
@@ -100,6 +101,8 @@ export const useGlobalBanners = () => {
         description: "Banner updated successfully",
       });
 
+      // Reload banners to update the list
+      await loadBanners();
       return true;
     } catch (error) {
       console.error('Error updating banner:', error);
