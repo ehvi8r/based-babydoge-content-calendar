@@ -110,9 +110,12 @@ export const useGlobalBanners = () => {
   useEffect(() => {
     loadBanners();
 
+    // Create a unique channel name to avoid conflicts
+    const channelName = `global_banners_changes_${Date.now()}_${Math.random()}`;
+
     // Subscribe to banner changes
     const channel = supabase
-      .channel('global_banners_changes')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {

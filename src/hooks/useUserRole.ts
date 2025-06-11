@@ -42,9 +42,12 @@ export const useUserRole = () => {
 
     loadUserRole();
 
+    // Create a unique channel name to avoid conflicts
+    const channelName = `user_roles_changes_${Date.now()}_${Math.random()}`;
+
     // Subscribe to role changes
     const channel = supabase
-      .channel('user_roles_changes')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {

@@ -143,9 +143,13 @@ export const useTeamManagement = () => {
   useEffect(() => {
     loadTeamData();
 
+    // Create unique channel names to avoid conflicts
+    const invitationChannelName = `team_invitations_changes_${Date.now()}_${Math.random()}`;
+    const rolesChannelName = `user_roles_changes_${Date.now()}_${Math.random()}`;
+
     // Subscribe to changes
     const invitationChannel = supabase
-      .channel('team_invitations_changes')
+      .channel(invitationChannelName)
       .on(
         'postgres_changes',
         {
@@ -160,7 +164,7 @@ export const useTeamManagement = () => {
       .subscribe();
 
     const rolesChannel = supabase
-      .channel('user_roles_changes')
+      .channel(rolesChannelName)
       .on(
         'postgres_changes',
         {
