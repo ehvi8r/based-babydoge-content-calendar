@@ -9,11 +9,13 @@ const Header = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden">
-              <img 
-                src="https://babydoge20.com/assets/images/BABYlogo.png" 
-                alt="Based BabyDoge Logo" 
-                className="w-full h-full object-contain"
-              />
+              <a href="https://babydoge2.com" target="_blank" rel="noopener noreferrer">
+                <img 
+                  src="https://babydoge20.com/assets/images/BABYlogo.png" 
+                  alt="Based BabyDoge Logo" 
+                  className="w-full h-full object-contain"
+                />
+              </a>
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">Based BabyDoge</h2>
