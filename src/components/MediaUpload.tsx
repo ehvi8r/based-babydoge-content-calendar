@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -149,14 +150,14 @@ const MediaUpload = ({ onMediaChange, initialFiles = [] }: MediaUploadProps) => 
       
       <div className="grid grid-cols-2 gap-2">
         <Label htmlFor="media-upload" className="cursor-pointer">
-          <div className="flex items-center justify-center p-4 border-2 border-dashed border-orange-500/50 rounded-lg hover:border-orange-400 transition-colors bg-orange-500/10 hover:bg-orange-500/20">
+          <div className="flex items-center justify-center p-4 border-2 border-dashed border-slate-300/50 rounded-lg hover:border-slate-200 transition-colors bg-slate-50/10 hover:bg-slate-50/20">
             <div className="text-center">
               {uploading ? (
-                <Loader2 className="mx-auto h-6 w-6 text-orange-400 mb-2 animate-spin" />
+                <Loader2 className="mx-auto h-6 w-6 text-slate-300 mb-2 animate-spin" />
               ) : (
-                <Upload className="mx-auto h-6 w-6 text-orange-400 mb-2" />
+                <Upload className="mx-auto h-6 w-6 text-slate-300 mb-2" />
               )}
-              <span className="text-sm text-orange-300 font-medium">
+              <span className="text-sm text-slate-200 font-medium">
                 {uploading ? 'Uploading...' : 'Choose Files'}
               </span>
             </div>

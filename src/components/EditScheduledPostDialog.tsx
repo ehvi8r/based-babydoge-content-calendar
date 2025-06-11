@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -254,10 +253,10 @@ const EditScheduledPostDialog = ({ post, onPostUpdate }: EditScheduledPostDialog
             <div className="space-y-3">
               <div className="flex gap-3 items-center">
                 <Label htmlFor="image-upload" className="cursor-pointer">
-                  <div className="flex items-center justify-center p-3 border-2 border-dashed border-orange-500/70 rounded-lg hover:border-orange-400 transition-colors bg-orange-500/20 hover:bg-orange-500/30">
+                  <div className="flex items-center justify-center p-3 border-2 border-dashed border-slate-300/50 rounded-lg hover:border-slate-200 transition-colors bg-slate-50/10 hover:bg-slate-50/20">
                     <div className="text-center">
-                      <Upload className="mx-auto h-5 w-5 text-orange-300 mb-1" />
-                      <span className="text-xs text-orange-200 font-medium">
+                      <Upload className="mx-auto h-5 w-5 text-slate-300 mb-1" />
+                      <span className="text-xs text-slate-200 font-medium">
                         {uploadingImage ? 'Uploading...' : 'Choose Image'}
                       </span>
                     </div>

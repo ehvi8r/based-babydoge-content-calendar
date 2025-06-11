@@ -208,10 +208,10 @@ const EditPostDialog = ({ post, isOpen, onClose, onSave }: EditPostDialogProps) 
             <Label className="text-blue-200">Image Upload</Label>
             <div className="flex gap-3">
               <Label htmlFor="edit-image-upload" className="cursor-pointer">
-                <div className="flex items-center justify-center p-3 border-2 border-dashed border-orange-500/50 rounded-lg hover:border-orange-400 transition-colors bg-orange-500/10 hover:bg-orange-500/20">
+                <div className="flex items-center justify-center p-3 border-2 border-dashed border-slate-300/50 rounded-lg hover:border-slate-200 transition-colors bg-slate-50/10 hover:bg-slate-50/20">
                   <div className="text-center">
-                    <Upload className="mx-auto h-5 w-5 text-orange-400 mb-1" />
-                    <span className="text-xs text-orange-300 font-medium">Choose Image</span>
+                    <Upload className="mx-auto h-5 w-5 text-slate-300 mb-1" />
+                    <span className="text-xs text-slate-200 font-medium">Choose Image</span>
                   </div>
                 </div>
               </Label>
