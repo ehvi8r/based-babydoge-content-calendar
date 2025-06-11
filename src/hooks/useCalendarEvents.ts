@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { parseISO, isValid, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -151,9 +150,6 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
       return updatedEvents;
     });
     
-    // Dispatch event to notify other components
-    window.dispatchEvent(new CustomEvent('calendarEventsUpdated'));
-    
     toast({
       title: "Event Added",
       description: `"${newEvent.title}" has been added to your calendar`,
@@ -178,9 +174,6 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
         return updated;
       });
 
-      // Dispatch event to notify other components
-      window.dispatchEvent(new CustomEvent('calendarEventsUpdated'));
-
       toast({
         title: "Event Updated",
         description: `"${updatedEvent.title}" has been updated`,
@@ -202,9 +195,6 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
         console.log('Events array after deletion:', filtered);
         return filtered;
       });
-      
-      // Dispatch event to notify other components
-      window.dispatchEvent(new CustomEvent('calendarEventsUpdated'));
       
       toast({
         title: "Event Deleted",
