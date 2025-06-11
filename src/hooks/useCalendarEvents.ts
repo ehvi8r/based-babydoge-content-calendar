@@ -31,9 +31,9 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
   // Load events from localStorage on component mount
   useEffect(() => {
     const loadEvents = () => {
-      const savedEvents = localStorage.getItem('calendarEvents');
-      if (savedEvents) {
-        try {
+      try {
+        const savedEvents = localStorage.getItem('calendarEvents');
+        if (savedEvents) {
           const parsedEvents = JSON.parse(savedEvents);
           const eventsWithDates = parsedEvents.map((event: any) => ({
             ...event,
@@ -41,12 +41,12 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
           }));
           console.log('Loading calendar events from localStorage:', eventsWithDates);
           setEvents(eventsWithDates);
-        } catch (error) {
-          console.error('Error loading events from localStorage:', error);
+        } else {
+          console.log('No calendar events found in localStorage');
           setEvents([]);
         }
-      } else {
-        console.log('No calendar events found in localStorage');
+      } catch (error) {
+        console.error('Error loading events from localStorage:', error);
         setEvents([]);
       }
     };
@@ -55,7 +55,7 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
 
     // Listen for calendar events updates
     const handleCalendarEventsUpdate = () => {
-      console.log('Calendar events updated, reloading...');
+      console.log('Calendar events updated via window event, reloading...');
       loadEvents();
     };
 
@@ -68,9 +68,11 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
 
   // Save events to localStorage whenever events change
   useEffect(() => {
-    if (events.length > 0) {
+    try {
       localStorage.setItem('calendarEvents', JSON.stringify(events));
       console.log('Saved calendar events to localStorage:', events);
+    } catch (error) {
+      console.error('Error saving events to localStorage:', error);
     }
   }, [events]);
 
@@ -123,10 +125,12 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
       });
     } else {
       // For regular events
+      console.log('Updating calendar event:', updatedEvent);
       setEvents(prevEvents => {
         const updated = prevEvents.map(event => 
           event.id === updatedEvent.id ? updatedEvent : event
         );
+        console.log('Updated events array after edit:', updated);
         return updated;
       });
 
@@ -148,8 +152,10 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
       });
     } else {
       // For regular events
+      console.log('Deleting calendar event:', eventToDelete);
       setEvents(prevEvents => {
         const filtered = prevEvents.filter(event => event.id !== eventToDelete.id);
+        console.log('Events array after deletion:', filtered);
         return filtered;
       });
       

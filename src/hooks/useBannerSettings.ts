@@ -23,7 +23,10 @@ export const useBannerSettings = () => {
         const saved = localStorage.getItem('bannerSettings');
         if (saved) {
           const parsed = JSON.parse(saved);
+          console.log('Loading banner settings from localStorage:', parsed);
           setBannerSettings(parsed);
+        } else {
+          console.log('No banner settings found in localStorage');
         }
       } catch (error) {
         console.error('Error loading banner settings:', error);
@@ -36,28 +39,41 @@ export const useBannerSettings = () => {
   }, []);
 
   // Save banner settings to localStorage whenever they change
-  const saveBannerSettings = (settings: BannerSettings) => {
-    try {
-      localStorage.setItem('bannerSettings', JSON.stringify(settings));
-      setBannerSettings(settings);
-    } catch (error) {
-      console.error('Error saving banner settings:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save banner settings",
-        variant: "destructive",
-      });
+  useEffect(() => {
+    if (!loading) {
+      try {
+        localStorage.setItem('bannerSettings', JSON.stringify(bannerSettings));
+        console.log('Saved banner settings to localStorage:', bannerSettings);
+      } catch (error) {
+        console.error('Error saving banner settings:', error);
+      }
     }
-  };
+  }, [bannerSettings, loading]);
 
   const updateImageUrl = (imageUrl: string) => {
-    const newSettings = { ...bannerSettings, imageUrl };
-    saveBannerSettings(newSettings);
+    console.log('Updating image URL:', imageUrl);
+    setBannerSettings(prev => {
+      const newSettings = { ...prev, imageUrl };
+      return newSettings;
+    });
+    
+    toast({
+      title: "Banner Updated",
+      description: "Banner image has been updated",
+    });
   };
 
   const updateLinkUrl = (linkUrl: string) => {
-    const newSettings = { ...bannerSettings, linkUrl };
-    saveBannerSettings(newSettings);
+    console.log('Updating link URL:', linkUrl);
+    setBannerSettings(prev => {
+      const newSettings = { ...prev, linkUrl };
+      return newSettings;
+    });
+    
+    toast({
+      title: "Link Updated",
+      description: "Banner link has been updated",
+    });
   };
 
   return {
