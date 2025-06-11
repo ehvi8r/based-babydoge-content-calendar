@@ -111,7 +111,6 @@ async function sendTweet(tweetText: string, mediaIds?: string[]): Promise<any> {
   
   const params: any = { text: tweetText };
   
-  // Add media if provided
   if (mediaIds && mediaIds.length > 0) {
     params.media = { media_ids: mediaIds };
     console.log("Including media in tweet:", mediaIds);
@@ -150,11 +149,34 @@ Deno.serve(async (req) => {
     const { postId, content, imageUrl } = await req.json();
     console.log("Processing post:", postId, "with image:", !!imageUrl);
 
+    // Get the original post data to access content_hash
+    const { data: originalPost } = await supabase
+      .from('scheduled_posts')
+      .select('*')
+      .eq('id', postId)
+      .single();
+
+    if (!originalPost) {
+      throw new Error("Original post not found");
+    }
+
     // Update post status to 'publishing'
     await supabase
       .from('scheduled_posts')
       .update({ status: 'publishing' })
       .eq('id', postId);
+
+    // Check for recent duplicates one more time before posting
+    const { data: isDuplicate, error: duplicateError } = await supabase
+      .rpc('check_recent_duplicate', {
+        p_user_id: originalPost.user_id,
+        p_content_hash: originalPost.content_hash,
+        p_hours_window: 24
+      });
+
+    if (!duplicateError && isDuplicate) {
+      throw new Error("Duplicate content detected - preventing duplicate post");
+    }
 
     let mediaIds: string[] = [];
     
@@ -167,7 +189,6 @@ Deno.serve(async (req) => {
         console.log("Media uploaded successfully:", mediaId);
       } catch (mediaError) {
         console.error("Media upload failed:", mediaError);
-        // Continue without media - post text only
         console.log("Continuing with text-only tweet due to media upload failure");
       }
     }
@@ -179,15 +200,8 @@ Deno.serve(async (req) => {
 
     console.log("Tweet posted successfully:", tweetId, "with media count:", mediaIds.length);
 
-    // Get the original post data
-    const { data: originalPost } = await supabase
-      .from('scheduled_posts')
-      .select('*')
-      .eq('id', postId)
-      .single();
-
     if (originalPost) {
-      // Move to published_posts
+      // Move to published_posts with content_hash
       await supabase
         .from('published_posts')
         .insert({
@@ -196,6 +210,7 @@ Deno.serve(async (req) => {
           content: originalPost.content,
           hashtags: originalPost.hashtags,
           image_url: originalPost.image_url,
+          content_hash: originalPost.content_hash,
           tweet_id: tweetId,
           tweet_url: tweetUrl,
         });

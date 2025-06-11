@@ -11,6 +11,7 @@ export interface PublishedPost {
   tweet_id?: string;
   tweet_url?: string;
   published_at: string;
+  content_hash?: string;
 }
 
 export const usePublishedPosts = () => {

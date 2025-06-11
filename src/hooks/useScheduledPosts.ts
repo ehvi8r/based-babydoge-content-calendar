@@ -9,6 +9,7 @@ interface ScheduledPost {
   time: string;
   status: string;
   hashtags?: string;
+  content_hash?: string;
 }
 
 export const useScheduledPosts = () => {
@@ -46,7 +47,8 @@ export const useScheduledPosts = () => {
             date: scheduledDate.toISOString().split('T')[0], // YYYY-MM-DD format
             time: scheduledDate.toTimeString().slice(0, 5), // HH:MM format
             status: post.status,
-            hashtags: post.hashtags || ''
+            hashtags: post.hashtags || '',
+            content_hash: post.content_hash
           };
         });
 

@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
       .select('*')
       .eq('status', 'scheduled')
       .lte('scheduled_for', currentTime)
-      .lt('retry_count', 3); // Direct comparison with integer instead of column reference
+      .lt('retry_count', 3);
 
     if (error) {
       console.error("Error fetching posts:", error);
@@ -34,10 +34,9 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${postsToPublish?.length || 0} posts to publish at ${currentTime}`);
 
-    // Log details about posts found
     if (postsToPublish && postsToPublish.length > 0) {
       postsToPublish.forEach(post => {
-        console.log(`Post ${post.id}: scheduled_for=${post.scheduled_for}, retry_count=${post.retry_count}`);
+        console.log(`Post ${post.id}: scheduled_for=${post.scheduled_for}, retry_count=${post.retry_count}, content_hash=${post.content_hash}`);
       });
     }
 
@@ -46,7 +45,33 @@ Deno.serve(async (req) => {
 
     for (const post of postsToPublish || []) {
       try {
-        console.log(`Processing post ${post.id}...`);
+        console.log(`Processing post ${post.id} with content hash ${post.content_hash}...`);
+        
+        // Check for recent duplicates before publishing
+        const { data: isDuplicate, error: duplicateError } = await supabase
+          .rpc('check_recent_duplicate', {
+            p_user_id: post.user_id,
+            p_content_hash: post.content_hash,
+            p_hours_window: 24
+          });
+
+        if (duplicateError) {
+          console.error(`Error checking duplicates for ${post.id}:`, duplicateError);
+        } else if (isDuplicate) {
+          console.log(`Skipping post ${post.id} - duplicate content detected`);
+          
+          // Mark as failed due to duplicate content
+          await supabase
+            .from('scheduled_posts')
+            .update({ 
+              status: 'failed',
+              error_message: 'Duplicate content detected - post not published to prevent spam'
+            })
+            .eq('id', post.id);
+          
+          errorCount++;
+          continue;
+        }
         
         // Update status to 'publishing' immediately to prevent duplicate processing
         const { error: updateError } = await supabase
@@ -79,7 +104,6 @@ Deno.serve(async (req) => {
           const errorText = await response.text();
           console.error(`Failed to post tweet for ${post.id}:`, errorText);
           
-          // Determine if this is a retryable error or permanent failure
           const isRetryableError = !errorText.includes('credentials') && 
                                  !errorText.includes('unauthorized') &&
                                  !errorText.includes('forbidden');
@@ -102,12 +126,13 @@ Deno.serve(async (req) => {
         } else {
           console.log(`Successfully posted tweet for ${post.id}`);
           
-          // Move to published_posts table
+          // Move to published_posts table with content_hash
           const publishedPost = {
             user_id: post.user_id,
             content: post.content,
             hashtags: post.hashtags,
             image_url: post.image_url,
+            content_hash: post.content_hash,
             original_scheduled_post_id: post.id,
             published_at: new Date().toISOString()
           };
@@ -135,7 +160,6 @@ Deno.serve(async (req) => {
       } catch (error) {
         console.error(`Error processing post ${post.id}:`, error);
         
-        // Update retry count and status on error
         const newRetryCount = (post.retry_count || 0) + 1;
         const newStatus = newRetryCount >= 3 ? 'failed' : 'scheduled';
         

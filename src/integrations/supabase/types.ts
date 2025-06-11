@@ -56,6 +56,7 @@ export type Database = {
       published_posts: {
         Row: {
           content: string
+          content_hash: string
           created_at: string | null
           hashtags: string | null
           id: string
@@ -68,6 +69,7 @@ export type Database = {
         }
         Insert: {
           content: string
+          content_hash: string
           created_at?: string | null
           hashtags?: string | null
           id?: string
@@ -80,6 +82,7 @@ export type Database = {
         }
         Update: {
           content?: string
+          content_hash?: string
           created_at?: string | null
           hashtags?: string | null
           id?: string
@@ -95,6 +98,7 @@ export type Database = {
       scheduled_posts: {
         Row: {
           content: string
+          content_hash: string
           created_at: string | null
           error_message: string | null
           hashtags: string | null
@@ -109,6 +113,7 @@ export type Database = {
         }
         Insert: {
           content: string
+          content_hash: string
           created_at?: string | null
           error_message?: string | null
           hashtags?: string | null
@@ -123,6 +128,7 @@ export type Database = {
         }
         Update: {
           content?: string
+          content_hash?: string
           created_at?: string | null
           error_message?: string | null
           hashtags?: string | null
@@ -142,7 +148,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_recent_duplicate: {
+        Args: {
+          p_user_id: string
+          p_content_hash: string
+          p_hours_window?: number
+        }
+        Returns: boolean
+      }
+      generate_content_hash: {
+        Args: { content_text: string; hashtags_text?: string }
+        Returns: string
+      }
     }
     Enums: {
       post_status: "scheduled" | "publishing" | "published" | "failed"
