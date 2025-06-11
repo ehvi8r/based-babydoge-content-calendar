@@ -10,6 +10,7 @@ import PublishedPostsHistory from './PublishedPostsHistory';
 import TwitterApiConfig from './TwitterApiConfig';
 import ManualTrigger from './ManualTrigger';
 import SchedulingDebugPanel from './SchedulingDebugPanel';
+import AdBanner from './AdBanner';
 
 const ContentScheduler = () => {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -72,6 +73,14 @@ const ContentScheduler = () => {
             <BulkImportTab onPostsUpdate={handlePostsUpdate} />
           </TabsContent>
         </Tabs>
+
+        {/* Ad Banner */}
+        <AdBanner
+          imageUrl="https://via.placeholder.com/728x90/1e293b/60a5fa?text=Your+Ad+Here"
+          linkUrl="https://babydoge20.com"
+          altText="BabyDoge Advertisement"
+          title="Sponsored"
+        />
 
         <ContentPreview content="" hashtags="" media={[]} />
       </div>
