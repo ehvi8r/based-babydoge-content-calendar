@@ -7,11 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Edit } from 'lucide-react';
+import { CalendarIcon, Edit, X, Image } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import MediaUpload from '@/components/MediaUpload';
 
 interface ScheduledPost {
   id: string;
@@ -35,6 +36,7 @@ const EditScheduledPostDialog = ({ post, onPostUpdate }: EditScheduledPostDialog
   const [hashtags, setHashtags] = useState(post.hashtags || '');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(post.scheduled_for));
   const [selectedTime, setSelectedTime] = useState(format(new Date(post.scheduled_for), 'HH:mm'));
+  const [imageUrls, setImageUrls] = useState<string[]>(post.image_url ? [post.image_url] : []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -68,6 +70,7 @@ const EditScheduledPostDialog = ({ post, onPostUpdate }: EditScheduledPostDialog
         .update({
           content,
           hashtags,
+          image_url: imageUrls.length > 0 ? imageUrls[0] : null,
           scheduled_for: scheduledFor.toISOString(),
         })
         .eq('id', post.id);
@@ -100,6 +103,10 @@ const EditScheduledPostDialog = ({ post, onPostUpdate }: EditScheduledPostDialog
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleRemoveImage = () => {
+    setImageUrls([]);
   };
 
   return (
@@ -141,6 +148,31 @@ const EditScheduledPostDialog = ({ post, onPostUpdate }: EditScheduledPostDialog
               className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
             />
           </div>
+
+          {/* Current Image Display */}
+          {imageUrls.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-blue-200">Current Image</Label>
+              <div className="relative inline-block">
+                <img 
+                  src={imageUrls[0]} 
+                  alt="Current post image"
+                  className="w-32 h-32 object-cover rounded-lg border border-slate-600"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRemoveImage}
+                  className="absolute -top-2 -right-2 h-6 w-6 p-0 bg-red-600 hover:bg-red-700 text-white rounded-full"
+                >
+                  <X size={12} />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Media Upload Component */}
+          <MediaUpload onMediaChange={setImageUrls} />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
