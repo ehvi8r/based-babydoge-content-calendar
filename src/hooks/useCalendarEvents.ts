@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { parseISO } from 'date-fns';
+import { parseISO, isValid, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
 export interface CalendarEvent {
@@ -28,6 +28,33 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const { toast } = useToast();
 
+  // Helper function to safely parse dates
+  const safeParseDateFromStorage = (dateValue: any): Date | null => {
+    if (!dateValue) return null;
+    
+    // If it's already a Date object
+    if (dateValue instanceof Date && isValid(dateValue)) {
+      return dateValue;
+    }
+    
+    // If it's a string, try to parse it
+    if (typeof dateValue === 'string') {
+      const parsed = parseISO(dateValue);
+      if (isValid(parsed)) {
+        return parsed;
+      }
+      
+      // Try direct Date constructor as fallback
+      const fallback = new Date(dateValue);
+      if (isValid(fallback)) {
+        return fallback;
+      }
+    }
+    
+    console.warn('Could not parse date:', dateValue);
+    return null;
+  };
+
   // Load events from localStorage on component mount
   useEffect(() => {
     const loadEvents = () => {
@@ -35,18 +62,30 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
         const savedEvents = localStorage.getItem('calendarEvents');
         if (savedEvents) {
           const parsedEvents = JSON.parse(savedEvents);
-          const eventsWithDates = parsedEvents.map((event: any) => ({
-            ...event,
-            date: new Date(event.date)
-          }));
-          console.log('Loading calendar events from localStorage:', eventsWithDates);
-          setEvents(eventsWithDates);
+          const eventsWithValidDates = parsedEvents
+            .map((event: any) => {
+              const parsedDate = safeParseDateFromStorage(event.date);
+              if (!parsedDate) {
+                console.warn('Skipping event with invalid date:', event);
+                return null;
+              }
+              return {
+                ...event,
+                date: parsedDate
+              };
+            })
+            .filter(Boolean); // Remove null entries
+          
+          console.log('Loading calendar events from localStorage:', eventsWithValidDates);
+          setEvents(eventsWithValidDates);
         } else {
           console.log('No calendar events found in localStorage');
           setEvents([]);
         }
       } catch (error) {
         console.error('Error loading events from localStorage:', error);
+        // Clear corrupted data
+        localStorage.removeItem('calendarEvents');
         setEvents([]);
       }
     };
@@ -69,7 +108,12 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = []) => {
   // Save events to localStorage whenever events change
   useEffect(() => {
     try {
-      localStorage.setItem('calendarEvents', JSON.stringify(events));
+      // Convert dates to ISO strings for storage
+      const eventsForStorage = events.map(event => ({
+        ...event,
+        date: event.date.toISOString()
+      }));
+      localStorage.setItem('calendarEvents', JSON.stringify(eventsForStorage));
       console.log('Saved calendar events to localStorage:', events);
     } catch (error) {
       console.error('Error saving events to localStorage:', error);

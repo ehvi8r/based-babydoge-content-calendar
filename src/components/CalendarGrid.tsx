@@ -1,5 +1,5 @@
 
-import { format, isSameMonth, isSameDay } from 'date-fns';
+import { format, isSameMonth, isSameDay, isValid } from 'date-fns';
 import { CalendarEvent } from '@/hooks/useCalendarEvents';
 import { Clock, Users, Calendar, Edit, ExternalLink } from 'lucide-react';
 
@@ -13,12 +13,38 @@ interface CalendarGridProps {
 
 const CalendarGrid = ({ days, currentDate, allEvents, onDateClick, onEventClick }: CalendarGridProps) => {
   const getEventsForDate = (date: Date) => {
+    if (!isValid(date)) {
+      console.warn('Invalid date passed to getEventsForDate:', date);
+      return [];
+    }
+
     const eventsForDate = allEvents.filter(event => {
+      // Ensure both dates are valid
+      if (!event.date || !isValid(event.date)) {
+        console.warn('Event has invalid date:', event);
+        return false;
+      }
+      
+      // Normalize both dates to just the day (ignore time)
       const eventDate = new Date(event.date);
-      const isMatch = isSameDay(eventDate, date);
+      eventDate.setHours(0, 0, 0, 0);
+      
+      const compareDate = new Date(date);
+      compareDate.setHours(0, 0, 0, 0);
+      
+      const isMatch = eventDate.getTime() === compareDate.getTime();
+      
+      if (isMatch) {
+        console.log(`Found event for ${format(date, 'yyyy-MM-dd')}:`, event.title);
+      }
+      
       return isMatch;
     });
-    console.log(`Events for ${format(date, 'yyyy-MM-dd')}:`, eventsForDate);
+    
+    if (eventsForDate.length > 0) {
+      console.log(`Events for ${format(date, 'yyyy-MM-dd')}:`, eventsForDate);
+    }
+    
     return eventsForDate;
   };
 
