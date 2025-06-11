@@ -44,6 +44,8 @@ const GlobalBannerManager = () => {
   const handleMediaChange = (urls: string[]) => {
     if (urls.length > 0) {
       setNewBanner(prev => ({ ...prev, imageUrl: urls[0] }));
+    } else {
+      setNewBanner(prev => ({ ...prev, imageUrl: '' }));
     }
   };
 
@@ -97,6 +99,25 @@ const GlobalBannerManager = () => {
                     initialFiles={newBanner.imageUrl ? [newBanner.imageUrl] : []}
                   />
                 </div>
+                
+                {/* Show current uploaded image preview */}
+                {newBanner.imageUrl && (
+                  <div className="mt-3">
+                    <Label className="text-slate-300">Current Banner Preview:</Label>
+                    <div className="mt-2 border border-slate-600 rounded overflow-hidden">
+                      <img 
+                        src={newBanner.imageUrl} 
+                        alt="Banner preview" 
+                        className="w-full h-20 object-cover"
+                        onError={(e) => {
+                          console.error('Error loading banner preview:', e);
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+                
                 <div>
                   <Label htmlFor="imageUrl" className="text-slate-300">Image URL (or upload above)</Label>
                   <Input
@@ -194,6 +215,7 @@ const GlobalBannerManager = () => {
                             alt={banner.title || "Banner"} 
                             className="w-full h-16 object-cover"
                             onError={(e) => {
+                              console.error('Error loading banner image:', e);
                               e.currentTarget.style.display = 'none';
                             }}
                           />

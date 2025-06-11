@@ -18,18 +18,20 @@ const MediaUpload = ({ onMediaChange, initialFiles = [] }: MediaUploadProps) => 
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
-  // Update internal state when initialFiles prop changes, but only if different
+  // Update internal state when initialFiles prop changes
   useEffect(() => {
     const filesEqual = initialFiles.length === uploadedFiles.length && 
       initialFiles.every((file, index) => file === uploadedFiles[index]);
     
     if (!filesEqual) {
+      console.log('Updating uploadedFiles from initialFiles:', initialFiles);
       setUploadedFiles(initialFiles);
     }
   }, [initialFiles.join(',')]); // Use join to create a stable dependency
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
+    console.log('Files selected for upload:', files.length);
     
     // Validate file types and sizes
     const validFiles = files.filter(file => {
@@ -81,9 +83,13 @@ const MediaUpload = ({ onMediaChange, initialFiles = [] }: MediaUploadProps) => 
         return;
       }
 
+      console.log('Starting upload for', validFiles.length, 'files');
+
       const uploadPromises = validFiles.map(async (file) => {
         const fileExt = file.name.split('.').pop();
         const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        
+        console.log('Uploading file:', fileName);
         
         const { data, error } = await supabase.storage
           .from('media-uploads')
@@ -99,11 +105,14 @@ const MediaUpload = ({ onMediaChange, initialFiles = [] }: MediaUploadProps) => 
           .from('media-uploads')
           .getPublicUrl(fileName);
 
+        console.log('Upload successful, public URL:', publicUrl);
         return publicUrl;
       });
 
       const uploadedUrls = await Promise.all(uploadPromises);
       const newFiles = [...uploadedFiles, ...uploadedUrls];
+      
+      console.log('All uploads complete. New files array:', newFiles);
       
       setUploadedFiles(newFiles);
       onMediaChange(newFiles);
@@ -122,11 +131,14 @@ const MediaUpload = ({ onMediaChange, initialFiles = [] }: MediaUploadProps) => 
       });
     } finally {
       setUploading(false);
+      // Clear the input so the same file can be uploaded again if needed
+      event.target.value = '';
     }
   };
 
   const removeFile = async (index: number) => {
     const fileUrl = uploadedFiles[index];
+    console.log('Removing file:', fileUrl);
     
     try {
       // Extract file path from URL to delete from storage
@@ -143,6 +155,8 @@ const MediaUpload = ({ onMediaChange, initialFiles = [] }: MediaUploadProps) => 
     setUploadedFiles(newFiles);
     onMediaChange(newFiles);
   };
+
+  console.log('MediaUpload render - uploadedFiles:', uploadedFiles);
 
   return (
     <div className="space-y-3">
@@ -181,11 +195,11 @@ const MediaUpload = ({ onMediaChange, initialFiles = [] }: MediaUploadProps) => 
       {uploadedFiles.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
           {uploadedFiles.map((fileUrl, index) => (
-            <Card key={index} className="bg-slate-700/50 border-slate-600">
+            <Card key={`${fileUrl}-${index}`} className="bg-slate-700/50 border-slate-600">
               <CardContent className="p-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    {fileUrl.includes('video') ? (
+                    {fileUrl.includes('video') || fileUrl.toLowerCase().includes('.mp4') || fileUrl.toLowerCase().includes('.mov') ? (
                       <Video className="text-purple-400" size={16} />
                     ) : (
                       <Image className="text-blue-400" size={16} />
@@ -203,12 +217,28 @@ const MediaUpload = ({ onMediaChange, initialFiles = [] }: MediaUploadProps) => 
                     <X size={12} />
                   </Button>
                 </div>
-                {fileUrl.includes('image') && (
-                  <img 
-                    src={fileUrl} 
-                    alt={`Upload ${index + 1}`}
-                    className="mt-2 w-full h-16 object-cover rounded"
-                  />
+                
+                {/* Show thumbnail for images */}
+                {(!fileUrl.includes('video') && !fileUrl.toLowerCase().includes('.mp4') && !fileUrl.toLowerCase().includes('.mov')) && (
+                  <div className="mt-2">
+                    <img 
+                      src={fileUrl} 
+                      alt={`Upload ${index + 1}`}
+                      className="w-full h-16 object-cover rounded"
+                      onLoad={() => console.log('Image loaded successfully:', fileUrl)}
+                      onError={(e) => {
+                        console.error('Error loading image:', fileUrl, e);
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+                
+                {/* Show video thumbnail/placeholder */}
+                {(fileUrl.includes('video') || fileUrl.toLowerCase().includes('.mp4') || fileUrl.toLowerCase().includes('.mov')) && (
+                  <div className="mt-2 bg-slate-600 rounded flex items-center justify-center h-16">
+                    <Video className="text-purple-400" size={24} />
+                  </div>
                 )}
               </CardContent>
             </Card>
