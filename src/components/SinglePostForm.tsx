@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { CalendarIcon, Clock, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
@@ -74,9 +74,12 @@ const SinglePostForm = ({ onPostScheduled }: SinglePostFormProps) => {
     }
 
     if (!isValidFutureDateTime(selectedDate, selectedTime)) {
+      const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
       toast({
         title: "Invalid Date/Time",
-        description: "Cannot schedule posts in the past. Please select a future date and time.",
+        description: isToday 
+          ? "Please select a future time for today's date." 
+          : "Cannot schedule posts in the past. Please select a future date and time.",
         variant: "destructive",
       });
       return;
@@ -151,6 +154,8 @@ const SinglePostForm = ({ onPostScheduled }: SinglePostFormProps) => {
     }
   };
 
+  const today = new Date().toISOString().split('T')[0];
+
   return (
     <Card className="bg-slate-800/50 border-blue-500/20">
       <CardHeader>
@@ -223,22 +228,15 @@ const SinglePostForm = ({ onPostScheduled }: SinglePostFormProps) => {
           </div>
 
           <div>
-            <Label className="text-blue-200">Time</Label>
-            <Select value={selectedTime} onValueChange={setSelectedTime}>
-              <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                <SelectValue placeholder="Select time" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-600">
-                {Array.from({ length: 24 }, (_, i) => {
-                  const hour = i.toString().padStart(2, '0');
-                  return (
-                    <SelectItem key={i} value={`${hour}:00`} className="text-white">
-                      {hour}:00
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="time-input" className="text-blue-200">Time (HH:MM)</Label>
+            <Input
+              id="time-input"
+              type="time"
+              value={selectedTime}
+              onChange={(e) => setSelectedTime(e.target.value)}
+              className="bg-slate-700 border-slate-600 text-white"
+              min={selectedDate && format(selectedDate, 'yyyy-MM-dd') === today ? format(new Date(), 'HH:mm') : undefined}
+            />
           </div>
         </div>
 
