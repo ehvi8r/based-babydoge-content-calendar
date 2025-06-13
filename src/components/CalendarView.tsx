@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Plus, Database } from 'lucide-react';
+import { Calendar, Plus, Database, Upload } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { useCalendarEvents, CalendarEvent } from '@/hooks/useCalendarEvents';
 import { PublishedPost } from '@/hooks/usePublishedPosts';
@@ -10,6 +10,7 @@ import { useGlobalBanners } from '@/hooks/useGlobalBanners';
 import CalendarGrid from './CalendarGrid';
 import EventDialogs from './EventDialogs';
 import CalendarLegend from './CalendarLegend';
+import CalendarMigrationDialog from './CalendarMigrationDialog';
 import AdBanner from './AdBanner';
 import { Badge } from '@/components/ui/badge';
 import { isFeatureEnabled } from '@/utils/featureFlags';
@@ -32,6 +33,7 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [isEditEventOpen, setIsEditEventOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [isMigrationDialogOpen, setIsMigrationDialogOpen] = useState(false);
 
   const { 
     allEvents, 
@@ -49,6 +51,25 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
   console.log('CalendarView received scheduledPosts:', scheduledPosts);
   console.log('CalendarView received publishedPosts:', publishedPosts);
   console.log('All events combined:', allEvents);
+
+  // Check if there are localStorage events to migrate
+  const [hasLocalStorageEvents, setHasLocalStorageEvents] = useState(false);
+
+  useEffect(() => {
+    if (useDatabaseEvents) {
+      const savedEvents = localStorage.getItem('calendarEvents');
+      if (savedEvents) {
+        try {
+          const events = JSON.parse(savedEvents);
+          // Only show migration if there are actual non-post events
+          const migrateableEvents = events.filter((event: any) => event.type !== 'post');
+          setHasLocalStorageEvents(migrateableEvents.length > 0);
+        } catch (error) {
+          console.error('Error checking localStorage events:', error);
+        }
+      }
+    }
+  }, [useDatabaseEvents]);
 
   // Listen for updates to scheduled posts
   useEffect(() => {
@@ -105,6 +126,12 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
     } else {
       setCurrentDate(new Date());
     }
+  };
+
+  const handleMigrationComplete = () => {
+    setHasLocalStorageEvents(false);
+    // Trigger a window event to reload calendar events
+    window.dispatchEvent(new CustomEvent('calendarEventsUpdated'));
   };
 
   // Get the first active banner
@@ -175,12 +202,42 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
         </div>
       </div>
 
-      {/* Permission notice for team members in database mode */}
-      {useDatabaseEvents && !canModifyEvents && (
-        <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
-          <div className="text-blue-300 text-sm">
-            <strong>Team Calendar:</strong> You can view all team events but only admins and team members can create or edit events.
-          </div>
+      {/* Team mode status and migration prompt */}
+      {useDatabaseEvents && (
+        <div className="space-y-3">
+          {/* Permission notice */}
+          {!canModifyEvents ? (
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+              <div className="text-blue-300 text-sm">
+                <strong>Team Calendar:</strong> You can view all team events but only admins and team members can create or edit events.
+              </div>
+            </div>
+          ) : (
+            <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+              <div className="text-green-300 text-sm">
+                <strong>Team Calendar Active:</strong> You have permission to create, edit, and delete calendar events.
+              </div>
+            </div>
+          )}
+
+          {/* Migration prompt */}
+          {hasLocalStorageEvents && canModifyEvents && (
+            <div className="bg-amber-900/20 border border-amber-500/30 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="text-amber-300 text-sm">
+                  <strong>Migration Available:</strong> You have personal calendar events that can be migrated to the team calendar.
+                </div>
+                <Button
+                  onClick={() => setIsMigrationDialogOpen(true)}
+                  size="sm"
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  <Upload size={14} className="mr-1" />
+                  Migrate Events
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -209,6 +266,12 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
         onEditEvent={updateEvent}
         onDeleteEvent={deleteEvent}
         canModifyEvents={canModifyEvents}
+      />
+
+      <CalendarMigrationDialog
+        isOpen={isMigrationDialogOpen}
+        onClose={() => setIsMigrationDialogOpen(false)}
+        onMigrationComplete={handleMigrationComplete}
       />
 
       <CalendarLegend />

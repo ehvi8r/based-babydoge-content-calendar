@@ -24,7 +24,7 @@ const UserRoleIndicator = () => {
           icon: Users,
           label: 'Team Member',
           className: 'bg-blue-600 text-white',
-          description: 'Read-only access'
+          description: 'Calendar & team access'
         };
       default:
         return {
