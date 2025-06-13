@@ -39,7 +39,8 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = [], publishe
     canModifyEvents,
     addEvent: addDatabaseEvent,
     updateEvent: updateDatabaseEvent,
-    deleteEvent: deleteDatabaseEvent
+    deleteEvent: deleteDatabaseEvent,
+    forceRefresh: forceRefreshDatabase
   } = useDatabaseCalendarEvents();
 
   // Feature flag check
@@ -187,6 +188,17 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = [], publishe
   const allEvents = [...scheduledPostEvents, ...publishedPostEvents, ...currentEvents];
   console.log('📅 All calendar events combined:', allEvents);
 
+  // Force refresh function
+  const forceRefresh = async () => {
+    console.log('🔄 Force refreshing calendar events...');
+    if (useDatabaseEvents) {
+      await forceRefreshDatabase();
+    } else {
+      // Trigger localStorage reload
+      window.dispatchEvent(new CustomEvent('calendarEventsUpdated'));
+    }
+  };
+
   // Add event function (with fallback)
   const addEvent = async (newEvent: Omit<CalendarEvent, 'id'>) => {
     if (useDatabaseEvents) {
@@ -265,6 +277,8 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = [], publishe
       return;
     }
 
+    console.log('🗑️ Attempting to delete event:', eventToDelete.id, eventToDelete.title);
+
     if (useDatabaseEvents && eventToDelete.id.startsWith('db-')) {
       const success = await deleteDatabaseEvent(eventToDelete);
       if (!success) {
@@ -295,6 +309,7 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = [], publishe
     useDatabaseEvents, // Expose for UI components
     addEvent,
     updateEvent,
-    deleteEvent
+    deleteEvent,
+    forceRefresh
   };
 };

@@ -49,6 +49,7 @@ export const useDatabaseCalendarEvents = () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('📅 Loading database calendar events...');
 
       const { data, error: dbError } = await supabase
         .from('calendar_events')
@@ -56,17 +57,17 @@ export const useDatabaseCalendarEvents = () => {
         .order('date', { ascending: true });
 
       if (dbError) {
-        console.error('Error loading database calendar events:', dbError);
+        console.error('❌ Error loading database calendar events:', dbError);
         setError('Failed to load calendar events from database');
         return [];
       }
 
       const convertedEvents = (data || []).map(convertDatabaseEvent);
-      console.log('📅 Loaded database calendar events:', convertedEvents.length);
+      console.log('✅ Loaded database calendar events:', convertedEvents.length, convertedEvents);
       setEvents(convertedEvents);
       return convertedEvents;
     } catch (error) {
-      console.error('Error in loadDatabaseEvents:', error);
+      console.error('❌ Error in loadDatabaseEvents:', error);
       setError('Failed to load calendar events');
       return [];
     } finally {
@@ -74,9 +75,18 @@ export const useDatabaseCalendarEvents = () => {
     }
   };
 
+  // Force refresh events (for manual triggers)
+  const forceRefresh = async () => {
+    console.log('🔄 Force refreshing calendar events...');
+    await loadDatabaseEvents();
+    // Trigger window event for other components
+    window.dispatchEvent(new CustomEvent('calendarEventsUpdated'));
+  };
+
   // Add event to database
   const addDatabaseEvent = async (newEvent: Omit<CalendarEvent, 'id'>): Promise<boolean> => {
     if (!canModifyEvents) {
+      console.log('❌ Add denied: User lacks permission');
       toast({
         title: "Permission Denied",
         description: "Only admins and team members can create calendar events",
@@ -86,8 +96,10 @@ export const useDatabaseCalendarEvents = () => {
     }
 
     try {
+      console.log('📅 Adding new database event:', newEvent);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        console.log('❌ Add failed: No authenticated user');
         toast({
           title: "Authentication Required",
           description: "Please sign in to create calendar events",
@@ -96,7 +108,7 @@ export const useDatabaseCalendarEvents = () => {
         return false;
       }
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('calendar_events')
         .insert({
           title: newEvent.title,
@@ -106,10 +118,11 @@ export const useDatabaseCalendarEvents = () => {
           description: newEvent.description || null,
           link: newEvent.link || null,
           created_by: user.id
-        });
+        })
+        .select();
 
       if (error) {
-        console.error('Error adding calendar event:', error);
+        console.error('❌ Error adding calendar event:', error);
         toast({
           title: "Error",
           description: "Failed to create calendar event",
@@ -118,15 +131,17 @@ export const useDatabaseCalendarEvents = () => {
         return false;
       }
 
+      console.log('✅ Event added successfully:', data);
       toast({
         title: "Event Created",
         description: `"${newEvent.title}" has been added to the team calendar`,
       });
 
-      // Events will be reloaded via real-time subscription
+      // Force refresh to ensure immediate UI update
+      setTimeout(() => forceRefresh(), 500);
       return true;
     } catch (error) {
-      console.error('Error in addDatabaseEvent:', error);
+      console.error('❌ Error in addDatabaseEvent:', error);
       return false;
     }
   };
@@ -134,6 +149,7 @@ export const useDatabaseCalendarEvents = () => {
   // Update event in database
   const updateDatabaseEvent = async (updatedEvent: CalendarEvent): Promise<boolean> => {
     if (!canModifyEvents) {
+      console.log('❌ Update denied: User lacks permission');
       toast({
         title: "Permission Denied",
         description: "Only admins and team members can edit calendar events",
@@ -144,9 +160,10 @@ export const useDatabaseCalendarEvents = () => {
 
     // Extract database ID from prefixed ID
     const dbId = updatedEvent.id.replace('db-', '');
+    console.log('📅 Updating database event:', dbId, updatedEvent);
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('calendar_events')
         .update({
           title: updatedEvent.title,
@@ -156,10 +173,11 @@ export const useDatabaseCalendarEvents = () => {
           description: updatedEvent.description || null,
           link: updatedEvent.link || null
         })
-        .eq('id', dbId);
+        .eq('id', dbId)
+        .select();
 
       if (error) {
-        console.error('Error updating calendar event:', error);
+        console.error('❌ Error updating calendar event:', error);
         toast({
           title: "Error",
           description: "Failed to update calendar event",
@@ -168,14 +186,17 @@ export const useDatabaseCalendarEvents = () => {
         return false;
       }
 
+      console.log('✅ Event updated successfully:', data);
       toast({
         title: "Event Updated",
         description: `"${updatedEvent.title}" has been updated`,
       });
 
+      // Force refresh to ensure immediate UI update
+      setTimeout(() => forceRefresh(), 500);
       return true;
     } catch (error) {
-      console.error('Error in updateDatabaseEvent:', error);
+      console.error('❌ Error in updateDatabaseEvent:', error);
       return false;
     }
   };
@@ -183,6 +204,7 @@ export const useDatabaseCalendarEvents = () => {
   // Delete event from database
   const deleteDatabaseEvent = async (eventToDelete: CalendarEvent): Promise<boolean> => {
     if (!canModifyEvents) {
+      console.log('❌ Delete denied: User lacks permission');
       toast({
         title: "Permission Denied",
         description: "Only admins and team members can delete calendar events",
@@ -193,15 +215,38 @@ export const useDatabaseCalendarEvents = () => {
 
     // Extract database ID from prefixed ID
     const dbId = eventToDelete.id.replace('db-', '');
+    console.log('🗑️ Deleting database event:', dbId, eventToDelete.title);
 
     try {
-      const { error } = await supabase
+      // First, verify the event exists
+      const { data: existingEvent, error: checkError } = await supabase
+        .from('calendar_events')
+        .select('id, title')
+        .eq('id', dbId)
+        .single();
+
+      if (checkError || !existingEvent) {
+        console.log('❌ Event not found in database:', dbId, checkError);
+        toast({
+          title: "Event Not Found",
+          description: "The event may have already been deleted",
+          variant: "destructive",
+        });
+        // Force refresh to sync UI with database
+        setTimeout(() => forceRefresh(), 500);
+        return false;
+      }
+
+      console.log('✅ Event exists in database, proceeding with deletion:', existingEvent);
+
+      const { data, error } = await supabase
         .from('calendar_events')
         .delete()
-        .eq('id', dbId);
+        .eq('id', dbId)
+        .select();
 
       if (error) {
-        console.error('Error deleting calendar event:', error);
+        console.error('❌ Error deleting calendar event:', error);
         toast({
           title: "Error",
           description: "Failed to delete calendar event",
@@ -210,14 +255,34 @@ export const useDatabaseCalendarEvents = () => {
         return false;
       }
 
+      console.log('✅ Event deleted successfully from database:', data);
+      
+      // Immediately remove from local state for instant UI feedback
+      setEvents(prevEvents => {
+        const filtered = prevEvents.filter(event => event.id !== eventToDelete.id);
+        console.log('🔄 Updated local events after deletion:', filtered.length);
+        return filtered;
+      });
+
       toast({
         title: "Event Deleted",
         description: `"${eventToDelete.title}" has been deleted`,
       });
 
+      // Force refresh after a short delay to ensure consistency
+      setTimeout(() => {
+        console.log('🔄 Force refreshing after deletion...');
+        forceRefresh();
+      }, 1000);
+
       return true;
     } catch (error) {
-      console.error('Error in deleteDatabaseEvent:', error);
+      console.error('❌ Error in deleteDatabaseEvent:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete calendar event",
+        variant: "destructive",
+      });
       return false;
     }
   };
@@ -226,7 +291,8 @@ export const useDatabaseCalendarEvents = () => {
   useEffect(() => {
     loadDatabaseEvents();
 
-    // Set up real-time subscription
+    // Set up real-time subscription with enhanced logging
+    console.log('📡 Setting up real-time subscription for calendar events...');
     const channel = supabase
       .channel('calendar_events_realtime')
       .on(
@@ -237,13 +303,21 @@ export const useDatabaseCalendarEvents = () => {
           table: 'calendar_events'
         },
         (payload) => {
-          console.log('📅 Calendar events real-time update:', payload);
-          loadDatabaseEvents(); // Reload events when changes occur
+          console.log('📡 Calendar events real-time update received:', payload.eventType, payload);
+          
+          // Add small delay to ensure database consistency
+          setTimeout(() => {
+            console.log('🔄 Reloading events due to real-time update...');
+            loadDatabaseEvents();
+          }, 200);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Real-time subscription status:', status);
+      });
 
     return () => {
+      console.log('📡 Cleaning up real-time subscription...');
       supabase.removeChannel(channel);
     };
   }, []);
@@ -256,6 +330,7 @@ export const useDatabaseCalendarEvents = () => {
     addEvent: addDatabaseEvent,
     updateEvent: updateDatabaseEvent,
     deleteEvent: deleteDatabaseEvent,
-    reloadEvents: loadDatabaseEvents
+    reloadEvents: loadDatabaseEvents,
+    forceRefresh
   };
 };

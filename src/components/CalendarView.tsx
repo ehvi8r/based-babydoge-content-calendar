@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Plus, Database, Upload } from 'lucide-react';
+import { Calendar, Plus, Database, Upload, RefreshCw } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { useCalendarEvents, CalendarEvent } from '@/hooks/useCalendarEvents';
 import { PublishedPost } from '@/hooks/usePublishedPosts';
@@ -34,6 +34,7 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
   const [isEditEventOpen, setIsEditEventOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [isMigrationDialogOpen, setIsMigrationDialogOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { 
     allEvents, 
@@ -43,7 +44,8 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
     useDatabaseEvents,
     addEvent, 
     updateEvent, 
-    deleteEvent 
+    deleteEvent,
+    forceRefresh
   } = useCalendarEvents(scheduledPosts, publishedPosts);
   
   const { banners, loading: bannersLoading } = useGlobalBanners();
@@ -134,6 +136,30 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
     window.dispatchEvent(new CustomEvent('calendarEventsUpdated'));
   };
 
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    console.log('🔄 Manual refresh triggered by user');
+    try {
+      await forceRefresh();
+    } catch (error) {
+      console.error('❌ Error during manual refresh:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Enhanced delete handler with immediate feedback
+  const handleDeleteEvent = async (eventToDelete: CalendarEvent) => {
+    console.log('🗑️ CalendarView: Delete event requested:', eventToDelete.id, eventToDelete.title);
+    await deleteEvent(eventToDelete);
+    
+    // Force refresh after a short delay to ensure UI consistency
+    setTimeout(async () => {
+      console.log('🔄 CalendarView: Force refreshing after delete...');
+      await forceRefresh();
+    }, 1000);
+  };
+
   // Get the first active banner
   const activeBanner = banners.find(banner => banner.is_active);
 
@@ -167,6 +193,15 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
         </div>
         
         <div className="flex gap-2">
+          <Button
+            onClick={handleManualRefresh}
+            variant="outline"
+            className="border-slate-600 text-slate-300 hover:bg-slate-700"
+            disabled={isRefreshing}
+          >
+            <RefreshCw size={16} className={`mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
           <Button
             onClick={() => {
               setSelectedDate(new Date());
@@ -264,7 +299,7 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
         setEditingEvent={setEditingEvent}
         onAddEvent={addEvent}
         onEditEvent={updateEvent}
-        onDeleteEvent={deleteEvent}
+        onDeleteEvent={handleDeleteEvent}
         canModifyEvents={canModifyEvents}
       />
 
