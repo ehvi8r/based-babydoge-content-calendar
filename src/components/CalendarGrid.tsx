@@ -1,4 +1,3 @@
-
 import { format, isSameMonth, isSameDay, isValid } from 'date-fns';
 import { CalendarEvent } from '@/hooks/useCalendarEvents';
 import { Clock, Users, Calendar, Edit, ExternalLink } from 'lucide-react';
@@ -9,9 +8,17 @@ interface CalendarGridProps {
   allEvents: CalendarEvent[];
   onDateClick: (date: Date) => void;
   onEventClick: (event: CalendarEvent, e: React.MouseEvent) => void;
+  onDayEventsClick?: (date: Date, events: CalendarEvent[]) => void;
 }
 
-const CalendarGrid = ({ days, currentDate, allEvents, onDateClick, onEventClick }: CalendarGridProps) => {
+const CalendarGrid = ({ 
+  days, 
+  currentDate, 
+  allEvents, 
+  onDateClick, 
+  onEventClick,
+  onDayEventsClick 
+}: CalendarGridProps) => {
   const getEventsForDate = (date: Date) => {
     if (!isValid(date)) {
       console.warn('Invalid date passed to getEventsForDate:', date);
@@ -68,6 +75,23 @@ const CalendarGrid = ({ days, currentDate, allEvents, onDateClick, onEventClick 
     }
   };
 
+  const handleDayClick = (day: Date, dayEvents: CalendarEvent[]) => {
+    if (dayEvents.length > 0 && onDayEventsClick) {
+      // If there are events and we have a day events handler, show the events dialog
+      onDayEventsClick(day, dayEvents);
+    } else {
+      // Otherwise, use the regular date click (for adding new events)
+      onDateClick(day);
+    }
+  };
+
+  const handleMoreEventsClick = (e: React.MouseEvent, day: Date, dayEvents: CalendarEvent[]) => {
+    e.stopPropagation();
+    if (onDayEventsClick) {
+      onDayEventsClick(day, dayEvents);
+    }
+  };
+
   return (
     <>
       <div className="grid grid-cols-7 gap-1 mb-4">
@@ -83,17 +107,26 @@ const CalendarGrid = ({ days, currentDate, allEvents, onDateClick, onEventClick 
           const dayEvents = getEventsForDate(day);
           const isCurrentMonth = isSameMonth(day, currentDate);
           const isToday = isSameDay(day, new Date());
+          const hasEvents = dayEvents.length > 0;
           
           return (
             <div
               key={day.toString()}
               className={`min-h-[100px] p-2 border border-slate-600 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors ${
                 isCurrentMonth ? 'bg-slate-800/30' : 'bg-slate-900/30'
-              } ${isToday ? 'ring-2 ring-blue-500' : ''}`}
-              onClick={() => onDateClick(day)}
+              } ${isToday ? 'ring-2 ring-blue-500' : ''} ${
+                hasEvents ? 'hover:ring-1 hover:ring-blue-400/50' : ''
+              }`}
+              onClick={() => handleDayClick(day, dayEvents)}
+              title={hasEvents ? `Click to view all ${dayEvents.length} events` : 'Click to add event'}
             >
-              <div className={`text-sm mb-1 ${isCurrentMonth ? 'text-white' : 'text-slate-500'} ${isToday ? 'font-bold' : ''}`}>
-                {format(day, 'd')}
+              <div className={`text-sm mb-1 flex items-center justify-between ${
+                isCurrentMonth ? 'text-white' : 'text-slate-500'
+              } ${isToday ? 'font-bold' : ''}`}>
+                <span>{format(day, 'd')}</span>
+                {hasEvents && (
+                  <div className="w-2 h-2 bg-blue-400 rounded-full" title={`${dayEvents.length} events`} />
+                )}
               </div>
               
               <div className="space-y-1">
@@ -118,7 +151,11 @@ const CalendarGrid = ({ days, currentDate, allEvents, onDateClick, onEventClick 
                   </div>
                 ))}
                 {dayEvents.length > 3 && (
-                  <div className="text-xs text-slate-400">
+                  <div 
+                    className="text-xs text-blue-400 cursor-pointer hover:text-blue-300 transition-colors font-medium"
+                    onClick={(e) => handleMoreEventsClick(e, day, dayEvents)}
+                    title="Click to view all events"
+                  >
                     +{dayEvents.length - 3} more
                   </div>
                 )}

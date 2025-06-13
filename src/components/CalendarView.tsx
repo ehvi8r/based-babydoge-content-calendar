@@ -11,6 +11,7 @@ import CalendarGrid from './CalendarGrid';
 import EventDialogs from './EventDialogs';
 import CalendarLegend from './CalendarLegend';
 import CalendarMigrationDialog from './CalendarMigrationDialog';
+import DayEventsDialog from './DayEventsDialog';
 import AdBanner from './AdBanner';
 import { Badge } from '@/components/ui/badge';
 import { isFeatureEnabled } from '@/utils/featureFlags';
@@ -35,6 +36,11 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [isMigrationDialogOpen, setIsMigrationDialogOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // New states for day events dialog
+  const [isDayEventsDialogOpen, setIsDayEventsDialogOpen] = useState(false);
+  const [dayEventsDate, setDayEventsDate] = useState<Date | null>(null);
+  const [dayEvents, setDayEvents] = useState<CalendarEvent[]>([]);
 
   const { 
     allEvents, 
@@ -114,6 +120,35 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
   const handleDateClick = (date: Date) => {
     setSelectedDate(date);
     setIsAddEventOpen(true);
+  };
+
+  // New handler for day events dialog
+  const handleDayEventsClick = (date: Date, events: CalendarEvent[]) => {
+    setDayEventsDate(date);
+    setDayEvents(events);
+    setIsDayEventsDialogOpen(true);
+  };
+
+  // Handler for adding event from day events dialog
+  const handleAddEventFromDayDialog = () => {
+    setIsDayEventsDialogOpen(false);
+    if (dayEventsDate) {
+      setSelectedDate(dayEventsDate);
+      setIsAddEventOpen(true);
+    }
+  };
+
+  // Handler for event click from day events dialog
+  const handleEventClickFromDayDialog = (event: CalendarEvent) => {
+    setIsDayEventsDialogOpen(false);
+    
+    if (event.link && (event.type === 'space' || event.type === 'meeting')) {
+      window.open(event.link, '_blank');
+      return;
+    }
+    
+    setEditingEvent(event);
+    setIsEditEventOpen(true);
   };
 
   const navigateMonth = (direction: 'prev' | 'next' | 'today') => {
@@ -284,6 +319,7 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
             allEvents={allEvents}
             onDateClick={handleDateClick}
             onEventClick={handleEventClick}
+            onDayEventsClick={handleDayEventsClick}
           />
         </CardContent>
       </Card>
@@ -300,6 +336,16 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
         onAddEvent={addEvent}
         onEditEvent={updateEvent}
         onDeleteEvent={handleDeleteEvent}
+        canModifyEvents={canModifyEvents}
+      />
+
+      <DayEventsDialog
+        isOpen={isDayEventsDialogOpen}
+        onClose={() => setIsDayEventsDialogOpen(false)}
+        selectedDate={dayEventsDate}
+        events={dayEvents}
+        onEventClick={handleEventClickFromDayDialog}
+        onAddEventClick={handleAddEventFromDayDialog}
         canModifyEvents={canModifyEvents}
       />
 
