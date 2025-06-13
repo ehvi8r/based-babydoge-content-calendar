@@ -367,24 +367,28 @@ const EventDialogs = ({
               )}
 
               <div className="flex gap-3">
+                {/* Save Changes button - only show for editable events if user has permission */}
                 {isEventEditable(editingEvent) && canModifyThisEvent() && (
-                  <>
-                    <Button
-                      onClick={handleEditEvent}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      Save Changes
-                    </Button>
-                    <Button
-                      onClick={handleDeleteEvent}
-                      variant="outline"
-                      className="border-red-500 text-red-400 hover:bg-red-500/20"
-                    >
-                      <Trash2 size={16} className="mr-1" />
-                      Delete
-                    </Button>
-                  </>
+                  <Button
+                    onClick={handleEditEvent}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Save Changes
+                  </Button>
                 )}
+                
+                {/* Delete button - show if user can modify events (regardless of event time) */}
+                {canModifyThisEvent() && editingEvent.type !== 'post' && (
+                  <Button
+                    onClick={handleDeleteEvent}
+                    variant="outline"
+                    className="border-red-500 text-red-400 hover:bg-red-500/20"
+                  >
+                    <Trash2 size={16} className="mr-1" />
+                    Delete
+                  </Button>
+                )}
+                
                 <Button
                   variant="outline"
                   onClick={() => {
