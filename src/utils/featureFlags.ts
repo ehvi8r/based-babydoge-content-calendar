@@ -4,7 +4,8 @@ export const FEATURE_FLAGS = {
   // Controls whether to use database storage for calendar events
   // Default: false (use localStorage - current behavior)
   // Set to true to enable team collaboration via database
-  USE_DATABASE_CALENDAR_EVENTS: false,
+  // USE_DATABASE_CALENDAR_EVENTS: false, no team collaboration
+  USE_DATABASE_CALENDAR_EVENTS: true,  // allows team collaboration
   
   // Debug flag for logging feature flag usage
   DEBUG_FEATURE_FLAGS: false
