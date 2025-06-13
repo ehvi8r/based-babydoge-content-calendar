@@ -9,6 +9,45 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      calendar_events: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          date: string
+          description: string | null
+          id: string
+          link: string | null
+          time: string | null
+          title: string
+          type: Database["public"]["Enums"]["calendar_event_type"]
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          date: string
+          description?: string | null
+          id?: string
+          link?: string | null
+          time?: string | null
+          title: string
+          type?: Database["public"]["Enums"]["calendar_event_type"]
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          date?: string
+          description?: string | null
+          id?: string
+          link?: string | null
+          time?: string | null
+          title?: string
+          type?: Database["public"]["Enums"]["calendar_event_type"]
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       global_banners: {
         Row: {
           created_at: string | null
@@ -266,6 +305,10 @@ export type Database = {
         Args: { _token: string }
         Returns: boolean
       }
+      can_modify_calendar_events: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       check_recent_duplicate: {
         Args: {
           p_user_id: string
@@ -296,6 +339,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "team_member" | "user"
+      calendar_event_type: "space" | "meeting" | "event"
       post_status: "scheduled" | "publishing" | "published" | "failed"
     }
     CompositeTypes: {
@@ -413,6 +457,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "team_member", "user"],
+      calendar_event_type: ["space", "meeting", "event"],
       post_status: ["scheduled", "publishing", "published", "failed"],
     },
   },

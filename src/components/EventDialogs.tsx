@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Lock, Database } from 'lucide-react';
 import { CalendarEvent } from '@/hooks/useCalendarEvents';
+import { isFeatureEnabled } from '@/utils/featureFlags';
 
 interface EventDialogsProps {
   isAddEventOpen: boolean;
@@ -22,6 +23,7 @@ interface EventDialogsProps {
   onAddEvent: (event: Omit<CalendarEvent, 'id'>) => void;
   onEditEvent: (event: CalendarEvent) => void;
   onDeleteEvent: (event: CalendarEvent) => void;
+  canModifyEvents?: boolean;
 }
 
 const EventDialogs = ({
@@ -35,7 +37,8 @@ const EventDialogs = ({
   setEditingEvent,
   onAddEvent,
   onEditEvent,
-  onDeleteEvent
+  onDeleteEvent,
+  canModifyEvents = true
 }: EventDialogsProps) => {
   const [newEvent, setNewEvent] = useState({
     title: '',
@@ -44,6 +47,8 @@ const EventDialogs = ({
     description: '',
     link: ''
   });
+
+  const useDatabaseEvents = isFeatureEnabled('USE_DATABASE_CALENDAR_EVENTS');
 
   const isEventEditable = (event: CalendarEvent) => {
     if (!event.time) return true;
@@ -68,6 +73,10 @@ const EventDialogs = ({
 
   const handleAddEvent = () => {
     if (!newEvent.title || !selectedDate) return;
+
+    if (useDatabaseEvents && !canModifyEvents) {
+      return; // Should not reach here due to UI restrictions
+    }
 
     onAddEvent({
       title: newEvent.title,
@@ -103,6 +112,12 @@ const EventDialogs = ({
     setEditingEvent(null);
   };
 
+  // Check if user can modify this specific event
+  const canModifyThisEvent = () => {
+    if (!useDatabaseEvents) return true; // localStorage mode allows all modifications
+    return canModifyEvents;
+  };
+
   return (
     <>
       {/* Add Event Dialog */}
@@ -112,6 +127,12 @@ const EventDialogs = ({
             <DialogTitle className="text-white flex items-center gap-2">
               <Plus className="text-blue-400" size={20} />
               Add Calendar Event
+              {useDatabaseEvents && (
+                <Badge variant="secondary" className="bg-blue-600 text-white">
+                  <Database size={12} className="mr-1" />
+                  Team Calendar
+                </Badge>
+              )}
               {selectedDate && (
                 <span className="text-sm text-slate-400">
                   - {format(selectedDate, 'PPP')}
@@ -120,88 +141,115 @@ const EventDialogs = ({
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="event-title" className="text-blue-200">Title</Label>
-              <Input
-                id="event-title"
-                value={newEvent.title}
-                onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                className="bg-slate-700 border-slate-600 text-white"
-                placeholder="Event title..."
-              />
+          {/* Permission check for database mode */}
+          {useDatabaseEvents && !canModifyEvents ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 p-4 bg-orange-900/20 border border-orange-500/30 rounded-lg">
+                <Lock className="text-orange-400" size={20} />
+                <div className="text-orange-300">
+                  <div className="font-medium">Permission Required</div>
+                  <div className="text-sm text-orange-400">
+                    Only admins and team members can create calendar events in team mode.
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsAddEventOpen(false);
+                    setSelectedDate(null);
+                  }}
+                  className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  Close
+                </Button>
+              </div>
             </div>
-
-            <div>
-              <Label htmlFor="event-type" className="text-blue-200">Type</Label>
-              <select
-                id="event-type"
-                value={newEvent.type}
-                onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value as CalendarEvent['type'] })}
-                className="w-full p-2 bg-slate-700 border border-slate-600 text-white rounded-md"
-              >
-                <option value="event">General Event</option>
-                <option value="space">Twitter Space</option>
-                <option value="meeting">Meeting</option>
-              </select>
-            </div>
-
-            <div>
-              <Label htmlFor="event-time" className="text-blue-200">Time (optional)</Label>
-              <Input
-                id="event-time"
-                type="time"
-                value={newEvent.time}
-                onChange={(e) => setNewEvent({ ...newEvent, time: e.target.value })}
-                className="bg-slate-700 border-slate-600 text-white"
-              />
-            </div>
-
-            {(newEvent.type === 'space' || newEvent.type === 'meeting') && (
+          ) : (
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="event-link" className="text-blue-200">
-                  {newEvent.type === 'space' ? 'Space Link' : 'Meeting Link'}
-                </Label>
+                <Label htmlFor="event-title" className="text-blue-200">Title</Label>
                 <Input
-                  id="event-link"
-                  value={newEvent.link}
-                  onChange={(e) => setNewEvent({ ...newEvent, link: e.target.value })}
+                  id="event-title"
+                  value={newEvent.title}
+                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
                   className="bg-slate-700 border-slate-600 text-white"
-                  placeholder={newEvent.type === 'space' ? 'https://twitter.com/i/spaces/...' : 'https://zoom.us/j/...'}
+                  placeholder="Event title..."
                 />
               </div>
-            )}
 
-            <div>
-              <Label htmlFor="event-description" className="text-blue-200">Description (optional)</Label>
-              <Textarea
-                id="event-description"
-                value={newEvent.description}
-                onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-                className="bg-slate-700 border-slate-600 text-white"
-                placeholder="Event description..."
-              />
-            </div>
+              <div>
+                <Label htmlFor="event-type" className="text-blue-200">Type</Label>
+                <select
+                  id="event-type"
+                  value={newEvent.type}
+                  onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value as CalendarEvent['type'] })}
+                  className="w-full p-2 bg-slate-700 border border-slate-600 text-white rounded-md"
+                >
+                  <option value="event">General Event</option>
+                  <option value="space">Twitter Space</option>
+                  <option value="meeting">Meeting</option>
+                </select>
+              </div>
 
-            <div className="flex gap-3">
-              <Button
-                onClick={handleAddEvent}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                Add Event
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsAddEventOpen(false);
-                  setSelectedDate(null);
-                }}
-                className="border-slate-600 text-slate-300 hover:bg-slate-700"
-              >
-                Cancel
-              </Button>
+              <div>
+                <Label htmlFor="event-time" className="text-blue-200">Time (optional)</Label>
+                <Input
+                  id="event-time"
+                  type="time"
+                  value={newEvent.time}
+                  onChange={(e) => setNewEvent({ ...newEvent, time: e.target.value })}
+                  className="bg-slate-700 border-slate-600 text-white"
+                />
+              </div>
+
+              {(newEvent.type === 'space' || newEvent.type === 'meeting') && (
+                <div>
+                  <Label htmlFor="event-link" className="text-blue-200">
+                    {newEvent.type === 'space' ? 'Space Link' : 'Meeting Link'}
+                  </Label>
+                  <Input
+                    id="event-link"
+                    value={newEvent.link}
+                    onChange={(e) => setNewEvent({ ...newEvent, link: e.target.value })}
+                    className="bg-slate-700 border-slate-600 text-white"
+                    placeholder={newEvent.type === 'space' ? 'https://twitter.com/i/spaces/...' : 'https://zoom.us/j/...'}
+                  />
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="event-description" className="text-blue-200">Description (optional)</Label>
+                <Textarea
+                  id="event-description"
+                  value={newEvent.description}
+                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                  className="bg-slate-700 border-slate-600 text-white"
+                  placeholder="Event description..."
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleAddEvent}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Add Event
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsAddEventOpen(false);
+                    setSelectedDate(null);
+                  }}
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -213,9 +261,17 @@ const EventDialogs = ({
               <Edit className="text-blue-400" size={20} />
               Edit {editingEvent?.type === 'post' ? 'Scheduled Post' : 'Event'}
               {editingEvent && (
-                <Badge variant="secondary" className={`${getEventTypeColor(editingEvent.type)} text-white ml-2`}>
-                  {editingEvent.type}
-                </Badge>
+                <>
+                  <Badge variant="secondary" className={`${getEventTypeColor(editingEvent.type)} text-white ml-2`}>
+                    {editingEvent.type}
+                  </Badge>
+                  {useDatabaseEvents && editingEvent.id.startsWith('db-') && (
+                    <Badge variant="secondary" className="bg-blue-600 text-white">
+                      <Database size={12} className="mr-1" />
+                      Team
+                    </Badge>
+                  )}
+                </>
               )}
             </DialogTitle>
           </DialogHeader>
@@ -256,6 +312,7 @@ const EventDialogs = ({
                       value={editingEvent.title}
                       onChange={(e) => setEditingEvent({ ...editingEvent, title: e.target.value })}
                       className="bg-slate-700 border-slate-600 text-white"
+                      disabled={useDatabaseEvents && !canModifyEvents}
                     />
                   </div>
 
@@ -267,6 +324,7 @@ const EventDialogs = ({
                       value={editingEvent.time || ''}
                       onChange={(e) => setEditingEvent({ ...editingEvent, time: e.target.value })}
                       className="bg-slate-700 border-slate-600 text-white"
+                      disabled={useDatabaseEvents && !canModifyEvents}
                     />
                   </div>
 
@@ -280,6 +338,7 @@ const EventDialogs = ({
                         value={editingEvent.link || ''}
                         onChange={(e) => setEditingEvent({ ...editingEvent, link: e.target.value })}
                         className="bg-slate-700 border-slate-600 text-white"
+                        disabled={useDatabaseEvents && !canModifyEvents}
                       />
                     </div>
                   )}
@@ -291,13 +350,24 @@ const EventDialogs = ({
                       value={editingEvent.description || ''}
                       onChange={(e) => setEditingEvent({ ...editingEvent, description: e.target.value })}
                       className="bg-slate-700 border-slate-600 text-white"
+                      disabled={useDatabaseEvents && !canModifyEvents}
                     />
                   </div>
+
+                  {/* Permission notice for database mode */}
+                  {useDatabaseEvents && !canModifyEvents && (
+                    <div className="flex items-center gap-2 p-3 bg-orange-900/20 border border-orange-500/30 rounded-lg">
+                      <Lock className="text-orange-400" size={16} />
+                      <div className="text-sm text-orange-300">
+                        Only admins and team members can edit team calendar events
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
               <div className="flex gap-3">
-                {isEventEditable(editingEvent) && (
+                {isEventEditable(editingEvent) && canModifyThisEvent() && (
                   <>
                     <Button
                       onClick={handleEditEvent}
@@ -323,7 +393,7 @@ const EventDialogs = ({
                   }}
                   className="border-slate-600 text-slate-300 hover:bg-slate-700"
                 >
-                  {!isEventEditable(editingEvent) ? 'Close' : 'Cancel'}
+                  {(!isEventEditable(editingEvent) || !canModifyThisEvent()) ? 'Close' : 'Cancel'}
                 </Button>
               </div>
             </div>

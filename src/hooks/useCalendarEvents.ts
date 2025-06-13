@@ -1,7 +1,10 @@
+
 import { useState, useEffect } from 'react';
 import { parseISO, isValid, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { PublishedPost } from '@/hooks/usePublishedPosts';
+import { useDatabaseCalendarEvents } from '@/hooks/useDatabaseCalendarEvents';
+import { isFeatureEnabled } from '@/utils/featureFlags';
 
 export interface CalendarEvent {
   id: string;
@@ -25,8 +28,24 @@ interface ScheduledPost {
 }
 
 export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = [], publishedPosts: PublishedPost[] = []) => {
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [localStorageEvents, setLocalStorageEvents] = useState<CalendarEvent[]>([]);
   const { toast } = useToast();
+  
+  // Database events hook
+  const {
+    events: databaseEvents,
+    loading: databaseLoading,
+    error: databaseError,
+    canModifyEvents,
+    addEvent: addDatabaseEvent,
+    updateEvent: updateDatabaseEvent,
+    deleteEvent: deleteDatabaseEvent
+  } = useDatabaseCalendarEvents();
+
+  // Feature flag check
+  const useDatabaseEvents = isFeatureEnabled('USE_DATABASE_CALENDAR_EVENTS');
+
+  console.log('🚩 Calendar events mode:', useDatabaseEvents ? 'DATABASE' : 'LOCALSTORAGE');
 
   // Helper function to safely parse dates
   const safeParseDateFromStorage = (dateValue: any): Date | null => {
@@ -55,9 +74,14 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = [], publishe
     return null;
   };
 
-  // Load events from localStorage on component mount
+  // Load localStorage events (existing functionality)
   useEffect(() => {
-    const loadEvents = () => {
+    if (useDatabaseEvents) {
+      console.log('📅 Database mode active, skipping localStorage load');
+      return;
+    }
+
+    const loadLocalStorageEvents = () => {
       try {
         const savedEvents = localStorage.getItem('calendarEvents');
         if (savedEvents) {
@@ -76,26 +100,26 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = [], publishe
             })
             .filter(Boolean); // Remove null entries
           
-          console.log('Loading calendar events from localStorage:', eventsWithValidDates);
-          setEvents(eventsWithValidDates);
+          console.log('📅 Loading calendar events from localStorage:', eventsWithValidDates);
+          setLocalStorageEvents(eventsWithValidDates);
         } else {
-          console.log('No calendar events found in localStorage');
-          setEvents([]);
+          console.log('📅 No calendar events found in localStorage');
+          setLocalStorageEvents([]);
         }
       } catch (error) {
         console.error('Error loading events from localStorage:', error);
         // Clear corrupted data
         localStorage.removeItem('calendarEvents');
-        setEvents([]);
+        setLocalStorageEvents([]);
       }
     };
 
-    loadEvents();
+    loadLocalStorageEvents();
 
-    // Listen for calendar events updates
+    // Listen for calendar events updates (localStorage mode only)
     const handleCalendarEventsUpdate = () => {
-      console.log('Calendar events updated via window event, reloading...');
-      loadEvents();
+      console.log('📅 Calendar events updated via window event, reloading...');
+      loadLocalStorageEvents();
     };
 
     window.addEventListener('calendarEventsUpdated', handleCalendarEventsUpdate);
@@ -103,23 +127,28 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = [], publishe
     return () => {
       window.removeEventListener('calendarEventsUpdated', handleCalendarEventsUpdate);
     };
-  }, []);
+  }, [useDatabaseEvents]);
 
-  // Save events to localStorage whenever events change
+  // Save localStorage events (existing functionality)
   useEffect(() => {
+    if (useDatabaseEvents) {
+      return; // Don't save to localStorage in database mode
+    }
+
     try {
       // Convert dates to ISO strings for storage
-      const eventsForStorage = events.map(event => ({
+      const eventsForStorage = localStorageEvents.map(event => ({
         ...event,
         date: event.date.toISOString()
       }));
       localStorage.setItem('calendarEvents', JSON.stringify(eventsForStorage));
-      console.log('Saved calendar events to localStorage:', events);
+      console.log('📅 Saved calendar events to localStorage:', localStorageEvents);
     } catch (error) {
       console.error('Error saving events to localStorage:', error);
     }
-  }, [events]);
+  }, [localStorageEvents, useDatabaseEvents]);
 
+  // Generate scheduled post events
   const scheduledPostEvents: CalendarEvent[] = scheduledPosts.map(post => {
     console.log('Processing scheduled post for calendar:', post);
     const postDate = parseISO(post.date + 'T00:00:00');
@@ -135,6 +164,7 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = [], publishe
     };
   });
 
+  // Generate published post events
   const publishedPostEvents: CalendarEvent[] = publishedPosts.map(post => {
     console.log('Processing published post for calendar:', post);
     const postDate = parseISO(post.published_at);
@@ -150,19 +180,38 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = [], publishe
     };
   });
 
-  const allEvents = [...scheduledPostEvents, ...publishedPostEvents, ...events];
-  console.log('All calendar events combined:', allEvents);
+  // Choose which events to use based on feature flag
+  const currentEvents = useDatabaseEvents ? databaseEvents : localStorageEvents;
+  
+  // Combine all events
+  const allEvents = [...scheduledPostEvents, ...publishedPostEvents, ...currentEvents];
+  console.log('📅 All calendar events combined:', allEvents);
 
-  const addEvent = (newEvent: Omit<CalendarEvent, 'id'>) => {
+  // Add event function (with fallback)
+  const addEvent = async (newEvent: Omit<CalendarEvent, 'id'>) => {
+    if (useDatabaseEvents) {
+      const success = await addDatabaseEvent(newEvent);
+      if (!success) {
+        // Fallback to localStorage on database failure
+        console.warn('📅 Database add failed, falling back to localStorage');
+        addLocalStorageEvent(newEvent);
+      }
+    } else {
+      addLocalStorageEvent(newEvent);
+    }
+  };
+
+  // localStorage add function (existing functionality)
+  const addLocalStorageEvent = (newEvent: Omit<CalendarEvent, 'id'>) => {
     const eventToAdd: CalendarEvent = {
       id: Date.now().toString(),
       ...newEvent
     };
 
-    console.log('Adding new calendar event:', eventToAdd);
-    setEvents(prevEvents => {
+    console.log('📅 Adding new localStorage calendar event:', eventToAdd);
+    setLocalStorageEvents(prevEvents => {
       const updatedEvents = [...prevEvents, eventToAdd];
-      console.log('Updated calendar events array:', updatedEvents);
+      console.log('📅 Updated localStorage calendar events array:', updatedEvents);
       return updatedEvents;
     });
     
@@ -172,21 +221,30 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = [], publishe
     });
   };
 
-  const updateEvent = (updatedEvent: CalendarEvent) => {
+  // Update event function (with fallback)
+  const updateEvent = async (updatedEvent: CalendarEvent) => {
     if (updatedEvent.type === 'post') {
       // For scheduled posts, update in Supabase (handled by the scheduled posts hook)
       toast({
         title: "Note",
         description: "Scheduled post updates are handled separately",
       });
+      return;
+    }
+
+    if (useDatabaseEvents && updatedEvent.id.startsWith('db-')) {
+      const success = await updateDatabaseEvent(updatedEvent);
+      if (!success) {
+        console.warn('📅 Database update failed');
+      }
     } else {
-      // For regular events
-      console.log('Updating calendar event:', updatedEvent);
-      setEvents(prevEvents => {
+      // localStorage update (existing functionality)
+      console.log('📅 Updating localStorage calendar event:', updatedEvent);
+      setLocalStorageEvents(prevEvents => {
         const updated = prevEvents.map(event => 
           event.id === updatedEvent.id ? updatedEvent : event
         );
-        console.log('Updated events array after edit:', updated);
+        console.log('📅 Updated localStorage events array after edit:', updated);
         return updated;
       });
 
@@ -197,18 +255,27 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = [], publishe
     }
   };
 
-  const deleteEvent = (eventToDelete: CalendarEvent) => {
+  // Delete event function (with fallback)
+  const deleteEvent = async (eventToDelete: CalendarEvent) => {
     if (eventToDelete.type === 'post') {
       toast({
         title: "Note",
         description: "Scheduled posts cannot be deleted from the calendar",
       });
+      return;
+    }
+
+    if (useDatabaseEvents && eventToDelete.id.startsWith('db-')) {
+      const success = await deleteDatabaseEvent(eventToDelete);
+      if (!success) {
+        console.warn('📅 Database delete failed');
+      }
     } else {
-      // For regular events
-      console.log('Deleting calendar event:', eventToDelete);
-      setEvents(prevEvents => {
+      // localStorage delete (existing functionality)
+      console.log('📅 Deleting localStorage calendar event:', eventToDelete);
+      setLocalStorageEvents(prevEvents => {
         const filtered = prevEvents.filter(event => event.id !== eventToDelete.id);
-        console.log('Events array after deletion:', filtered);
+        console.log('📅 LocalStorage events array after deletion:', filtered);
         return filtered;
       });
       
@@ -220,8 +287,12 @@ export const useCalendarEvents = (scheduledPosts: ScheduledPost[] = [], publishe
   };
 
   return {
-    events,
+    events: currentEvents,
     allEvents,
+    loading: useDatabaseEvents ? databaseLoading : false,
+    error: useDatabaseEvents ? databaseError : null,
+    canModifyEvents: useDatabaseEvents ? canModifyEvents : true, // localStorage allows all modifications
+    useDatabaseEvents, // Expose for UI components
     addEvent,
     updateEvent,
     deleteEvent

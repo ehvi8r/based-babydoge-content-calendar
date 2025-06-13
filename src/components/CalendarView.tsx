@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Plus } from 'lucide-react';
+import { Calendar, Plus, Database } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { useCalendarEvents, CalendarEvent } from '@/hooks/useCalendarEvents';
 import { PublishedPost } from '@/hooks/usePublishedPosts';
@@ -11,6 +11,8 @@ import CalendarGrid from './CalendarGrid';
 import EventDialogs from './EventDialogs';
 import CalendarLegend from './CalendarLegend';
 import AdBanner from './AdBanner';
+import { Badge } from '@/components/ui/badge';
+import { isFeatureEnabled } from '@/utils/featureFlags';
 
 interface CalendarViewProps {
   scheduledPosts?: Array<{
@@ -31,7 +33,17 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
   const [isEditEventOpen, setIsEditEventOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
 
-  const { allEvents, addEvent, updateEvent, deleteEvent } = useCalendarEvents(scheduledPosts, publishedPosts);
+  const { 
+    allEvents, 
+    loading,
+    error,
+    canModifyEvents,
+    useDatabaseEvents,
+    addEvent, 
+    updateEvent, 
+    deleteEvent 
+  } = useCalendarEvents(scheduledPosts, publishedPosts);
+  
   const { banners, loading: bannersLoading } = useGlobalBanners();
 
   console.log('CalendarView received scheduledPosts:', scheduledPosts);
@@ -101,10 +113,31 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Calendar className="text-blue-400" size={24} />
-          Content Calendar - {format(currentDate, 'MMMM yyyy')}
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Calendar className="text-blue-400" size={24} />
+            Content Calendar - {format(currentDate, 'MMMM yyyy')}
+          </h2>
+          
+          {useDatabaseEvents && (
+            <Badge variant="secondary" className="bg-blue-600 text-white">
+              <Database size={14} className="mr-1" />
+              Team Mode
+            </Badge>
+          )}
+          
+          {loading && (
+            <Badge variant="secondary" className="bg-yellow-600 text-white">
+              Loading...
+            </Badge>
+          )}
+          
+          {error && (
+            <Badge variant="destructive" className="bg-red-600 text-white">
+              Error: {error}
+            </Badge>
+          )}
+        </div>
         
         <div className="flex gap-2">
           <Button
@@ -113,6 +146,7 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
               setIsAddEventOpen(true);
             }}
             className="bg-blue-600 hover:bg-blue-700 text-white"
+            disabled={useDatabaseEvents && !canModifyEvents}
           >
             <Plus size={16} className="mr-2" />
             Add Event
@@ -141,6 +175,15 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
         </div>
       </div>
 
+      {/* Permission notice for team members in database mode */}
+      {useDatabaseEvents && !canModifyEvents && (
+        <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+          <div className="text-blue-300 text-sm">
+            <strong>Team Calendar:</strong> You can view all team events but only admins and team members can create or edit events.
+          </div>
+        </div>
+      )}
+
       <Card className="bg-slate-800/50 border-blue-500/20">
         <CardContent className="p-6">
           <CalendarGrid
@@ -165,6 +208,7 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
         onAddEvent={addEvent}
         onEditEvent={updateEvent}
         onDeleteEvent={deleteEvent}
+        canModifyEvents={canModifyEvents}
       />
 
       <CalendarLegend />
