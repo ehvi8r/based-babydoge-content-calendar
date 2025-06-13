@@ -31,21 +31,6 @@ const ContentScheduler = () => {
     setRefreshKey(prev => prev + 1);
   };
 
-  useEffect(() => {
-    // Set up interval to check for posts to schedule every minute
-    const interval = setInterval(async () => {
-      try {
-        // This could call the schedule-processor function
-        // For now, we'll let the cron job handle it
-        console.log('Checking for posts to schedule...');
-      } catch (error) {
-        console.error('Error in schedule check:', error);
-      }
-    }, 60000); // Check every minute
-
-    return () => clearInterval(interval);
-  }, []);
-
   // Show loading state while banners are loading
   if (bannersLoading) {
     return (

@@ -86,17 +86,8 @@ export const useScheduledPosts = () => {
       )
       .subscribe();
 
-    // Also listen for window events as fallback
-    const handleScheduledPostsUpdate = () => {
-      console.log('Scheduled posts updated via window event, reloading for calendar...');
-      loadScheduledPosts();
-    };
-
-    window.addEventListener('scheduledPostsUpdated', handleScheduledPostsUpdate);
-    
     return () => {
       supabase.removeChannel(channel);
-      window.removeEventListener('scheduledPostsUpdated', handleScheduledPostsUpdate);
     };
   }, []);
 

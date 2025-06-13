@@ -57,6 +57,32 @@ const SinglePostForm = ({ onPostScheduled }: SinglePostFormProps) => {
     }
   };
 
+  // Enhanced duplicate detection
+  const checkForDuplicates = async (contentHash: string): Promise<boolean> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+
+      // Check for duplicates in both scheduled and published posts within 48 hours
+      const { data: isDuplicate, error } = await supabase
+        .rpc('check_recent_duplicate', {
+          p_user_id: user.id,
+          p_content_hash: contentHash,
+          p_hours_window: 48
+        });
+
+      if (error) {
+        console.error('Error checking for duplicates:', error);
+        return false;
+      }
+
+      return isDuplicate || false;
+    } catch (error) {
+      console.error('Error in duplicate check:', error);
+      return false;
+    }
+  };
+
   const isValidFutureDateTime = (date: Date, time: string): boolean => {
     const scheduledDateTime = new Date(`${format(date, 'yyyy-MM-dd')}T${time}`);
     const now = new Date();
@@ -100,10 +126,21 @@ const SinglePostForm = ({ onPostScheduled }: SinglePostFormProps) => {
         return;
       }
 
-      const scheduledFor = new Date(`${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`);
-
       // Generate content hash
       const contentHash = await generateContentHash(content, hashtags);
+
+      // Check for duplicates before submitting
+      const isDuplicate = await checkForDuplicates(contentHash);
+      if (isDuplicate) {
+        toast({
+          title: "Duplicate Content Detected",
+          description: "Similar content has been posted recently. Please modify your content or wait before posting similar content.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const scheduledFor = new Date(`${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`);
 
       const { error } = await supabase
         .from('scheduled_posts')
