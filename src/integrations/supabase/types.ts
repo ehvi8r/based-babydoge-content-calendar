@@ -223,7 +223,6 @@ export type Database = {
           expires_at: string | null
           id: string
           invited_by: string
-          role: Database["public"]["Enums"]["app_role"]
           token: string
         }
         Insert: {
@@ -233,7 +232,6 @@ export type Database = {
           expires_at?: string | null
           id?: string
           invited_by: string
-          role?: Database["public"]["Enums"]["app_role"]
           token?: string
         }
         Update: {
@@ -243,7 +241,6 @@ export type Database = {
           expires_at?: string | null
           id?: string
           invited_by?: string
-          role?: Database["public"]["Enums"]["app_role"]
           token?: string
         }
         Relationships: []
@@ -303,6 +300,10 @@ export type Database = {
     Functions: {
       accept_team_invitation: {
         Args: { _token: string }
+        Returns: boolean
+      }
+      assign_user_role: {
+        Args: { target_user_id: string; user_role: string; assigner_id: string }
         Returns: boolean
       }
       can_modify_calendar_events: {
