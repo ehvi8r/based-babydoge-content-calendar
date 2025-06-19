@@ -14,6 +14,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('🚀 Admin create user function started')
+    
     // Initialize Supabase client with service role key for admin operations
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -29,7 +31,7 @@ serve(async (req) => {
     // Check if the requesting user is an admin
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      console.error('No authorization header provided')
+      console.error('❌ No authorization header provided')
       return new Response(
         JSON.stringify({ error: 'No authorization header' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -38,17 +40,22 @@ serve(async (req) => {
 
     // Verify the user making the request is an admin
     const token = authHeader.replace('Bearer ', '')
+    console.log('🔍 Verifying admin token...')
+    
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
     
     if (userError || !user) {
-      console.error('Invalid token:', userError)
+      console.error('❌ Invalid token:', userError)
       return new Response(
         JSON.stringify({ error: 'Invalid token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
+    console.log('✅ Token verified for user:', user.email)
+
     // Check if user has admin role
+    console.log('🔍 Checking admin role for user:', user.id)
     const { data: roleData, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
@@ -56,7 +63,7 @@ serve(async (req) => {
       .single()
 
     if (roleError) {
-      console.error('Error checking user role:', roleError)
+      console.error('❌ Error checking user role:', roleError)
       return new Response(
         JSON.stringify({ error: 'Error checking user permissions' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -64,56 +71,44 @@ serve(async (req) => {
     }
 
     if (roleData?.role !== 'admin') {
-      console.error('User is not admin. Role:', roleData?.role)
+      console.error('❌ User is not admin. Role:', roleData?.role)
       return new Response(
         JSON.stringify({ error: 'Admin access required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    const { email, role = 'team_member', full_name } = await req.json()
+    console.log('✅ Admin access confirmed')
+
+    // Parse request body
+    let requestBody
+    try {
+      requestBody = await req.json()
+    } catch (parseError) {
+      console.error('❌ Invalid JSON in request body:', parseError)
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const { email, role = 'team_member', full_name } = requestBody
 
     if (!email) {
-      console.error('Email is required but not provided')
+      console.error('❌ Email is required but not provided')
       return new Response(
         JSON.stringify({ error: 'Email is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log(`Creating user account for: ${email}`)
-
-    // First, let's check if the app_role type exists
-    console.log('Checking if app_role type exists...')
-    const { data: typeCheck, error: typeError } = await supabaseAdmin
-      .from('information_schema.tables')
-      .select('*')
-      .limit(1)
-
-    if (typeError) {
-      console.error('Error checking database schema:', typeError)
-    }
-
-    // Check if user_roles table exists
-    console.log('Checking if user_roles table exists...')
-    const { data: tableCheck, error: tableError } = await supabaseAdmin
-      .from('user_roles')
-      .select('count')
-      .limit(1)
-
-    if (tableError) {
-      console.error('Error accessing user_roles table:', tableError)
-      return new Response(
-        JSON.stringify({ error: 'Database schema not properly set up. Please ensure user_roles table exists.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    console.log(`📧 Creating user account for: ${email}`)
 
     // Generate a temporary password
     const tempPassword = `TempPass${Math.random().toString(36).slice(2)}!`
 
-    console.log('Attempting to create user with Supabase Auth...')
     // Create the user using Supabase Auth Admin API
+    console.log('👤 Creating user with Supabase Auth...')
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email: email,
       password: tempPassword,
@@ -124,59 +119,65 @@ serve(async (req) => {
     })
 
     if (createError) {
-      console.error('Error creating user:', createError)
-      console.error('Create error details:', JSON.stringify(createError, null, 2))
+      console.error('❌ Error creating user:', createError)
       return new Response(
         JSON.stringify({ error: `Failed to create user: ${createError.message}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log(`User created successfully: ${newUser.user?.id}`)
+    if (!newUser.user) {
+      console.error('❌ No user returned from creation')
+      return new Response(
+        JSON.stringify({ error: 'Failed to create user - no user data returned' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log(`✅ User created successfully: ${newUser.user.id}`)
 
     // Create user profile
-    console.log('Creating user profile...')
+    console.log('📝 Creating user profile...')
     const { error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .insert({
-        id: newUser.user!.id,
+        id: newUser.user.id,
         email: email,
         full_name: full_name || ''
       })
 
     if (profileError) {
-      console.error('Error creating profile:', profileError)
-      // Don't fail the entire operation if profile creation fails
-      console.log('Continuing despite profile creation error...')
+      console.error('⚠️ Error creating profile (continuing):', profileError)
+    } else {
+      console.log('✅ User profile created')
     }
 
     // Assign role to the user
-    console.log(`Assigning role ${role} to user...`)
+    console.log(`🎭 Assigning role ${role} to user...`)
     const { error: roleAssignError } = await supabaseAdmin
       .from('user_roles')
       .insert({
-        user_id: newUser.user!.id,
+        user_id: newUser.user.id,
         role: role,
         assigned_by: user.id
       })
 
     if (roleAssignError) {
-      console.error('Error assigning role:', roleAssignError)
-      console.error('Role assignment error details:', JSON.stringify(roleAssignError, null, 2))
+      console.error('❌ Error assigning role:', roleAssignError)
       return new Response(
         JSON.stringify({ error: `User created but role assignment failed: ${roleAssignError.message}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log(`Role ${role} assigned successfully to user: ${newUser.user?.id}`)
+    console.log(`✅ Role ${role} assigned successfully`)
 
     return new Response(
       JSON.stringify({
         success: true,
         user: {
-          id: newUser.user!.id,
-          email: newUser.user!.email,
+          id: newUser.user.id,
+          email: newUser.user.email,
           role: role
         },
         temporaryPassword: tempPassword,
@@ -189,8 +190,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Unexpected error:', error)
-    console.error('Error details:', JSON.stringify(error, null, 2))
+    console.error('💥 Unexpected error:', error)
     return new Response(
       JSON.stringify({ error: 'Internal server error', details: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
