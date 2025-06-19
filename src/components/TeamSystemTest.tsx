@@ -119,7 +119,7 @@ const TeamSystemTest = () => {
 
       const { data: invitationsData, error: invitationsError } = await supabase
         .from('team_invitations')
-        .select('email, role, expires_at, accepted_at')
+        .select('email, expires_at, accepted_at')
         .in('email', targetEmails)
         .is('accepted_at', null);
 

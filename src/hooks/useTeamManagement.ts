@@ -9,7 +9,6 @@ type UserRole = Database['public']['Enums']['app_role'];
 interface TeamInvitation {
   id: string;
   email: string;
-  role: UserRole;
   token: string;
   expires_at: string;
   accepted_at?: string;
@@ -38,10 +37,10 @@ export const useTeamManagement = () => {
       
       setLoading(true);
 
-      // Load pending invitations - include role field
+      // Load pending invitations - removed role field since it doesn't exist
       const { data: invitationData, error: invitationError } = await supabase
         .from('team_invitations')
-        .select('id, email, role, token, expires_at, accepted_at, created_at')
+        .select('id, email, token, expires_at, accepted_at, created_at')
         .is('accepted_at', null)
         .order('created_at', { ascending: false });
 
@@ -132,7 +131,6 @@ export const useTeamManagement = () => {
         .from('team_invitations')
         .insert({
           email,
-          role,
           invited_by: user.id
         });
 
