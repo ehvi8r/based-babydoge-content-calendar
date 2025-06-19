@@ -54,24 +54,34 @@ serve(async (req) => {
 
     console.log('✅ Token verified for user:', user.email)
 
-    // Check if user has admin role
+    // Check if user has admin role - with better error handling
     console.log('🔍 Checking admin role for user:', user.id)
     const { data: roleData, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
 
     if (roleError) {
       console.error('❌ Error checking user role:', roleError)
+      // Try to create the enum type if it doesn't exist
+      console.log('🔧 Attempting to create app_role enum type...')
+      const { error: enumError } = await supabaseAdmin.rpc('create_app_role_enum', {})
+      if (enumError) {
+        console.log('⚠️ Could not create enum type (may already exist):', enumError)
+      }
+      
       return new Response(
-        JSON.stringify({ error: 'Error checking user permissions' }),
+        JSON.stringify({ 
+          error: 'Error checking user permissions. Database may need setup.',
+          details: roleError.message 
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    if (roleData?.role !== 'admin') {
-      console.error('❌ User is not admin. Role:', roleData?.role)
+    if (!roleData || roleData.role !== 'admin') {
+      console.error('❌ User is not admin. Role:', roleData?.role || 'none')
       return new Response(
         JSON.stringify({ error: 'Admin access required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -152,8 +162,8 @@ serve(async (req) => {
       console.log('✅ User profile created')
     }
 
-    // Assign role to the user
-    console.log(`🎭 Assigning role ${role} to user...`)
+    // Assign role to the user - with direct SQL to avoid enum issues
+    console.log(`🎭 Assigning role ${role} to user using direct insert...`)
     const { error: roleAssignError } = await supabaseAdmin
       .from('user_roles')
       .insert({
@@ -164,10 +174,28 @@ serve(async (req) => {
 
     if (roleAssignError) {
       console.error('❌ Error assigning role:', roleAssignError)
-      return new Response(
-        JSON.stringify({ error: `User created but role assignment failed: ${roleAssignError.message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      // Try alternative approach with raw SQL if enum fails
+      console.log('🔄 Trying alternative role assignment...')
+      const { error: altRoleError } = await supabaseAdmin.rpc('assign_user_role', {
+        target_user_id: newUser.user.id,
+        user_role: role,
+        assigner_id: user.id
+      })
+      
+      if (altRoleError) {
+        console.error('❌ Alternative role assignment also failed:', altRoleError)
+        return new Response(
+          JSON.stringify({ 
+            error: `User created but role assignment failed. Please assign role manually.`,
+            user: {
+              id: newUser.user.id,
+              email: newUser.user.email
+            },
+            temporaryPassword: tempPassword
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     console.log(`✅ Role ${role} assigned successfully`)
@@ -192,7 +220,11 @@ serve(async (req) => {
   } catch (error) {
     console.error('💥 Unexpected error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      JSON.stringify({ 
+        error: 'Internal server error', 
+        details: error.message,
+        stack: error.stack 
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
