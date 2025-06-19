@@ -14,7 +14,7 @@ BEGIN
     
     -- If we found a user, make them admin
     IF first_user_id IS NOT NULL THEN
-        -- Delete any existing role for this user
+        -- Delete any existing role for this user to avoid conflicts
         DELETE FROM public.user_roles WHERE user_id = first_user_id;
         
         -- Insert admin role

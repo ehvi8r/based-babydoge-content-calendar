@@ -223,6 +223,7 @@ export type Database = {
           expires_at: string | null
           id: string
           invited_by: string
+          role: Database["public"]["Enums"]["app_role"]
           token: string
         }
         Insert: {
@@ -232,6 +233,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           invited_by: string
+          role?: Database["public"]["Enums"]["app_role"]
           token?: string
         }
         Update: {
@@ -241,6 +243,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           invited_by?: string
+          role?: Database["public"]["Enums"]["app_role"]
           token?: string
         }
         Relationships: []
