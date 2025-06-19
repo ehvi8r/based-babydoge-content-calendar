@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -160,8 +161,8 @@ const TeamManagement = () => {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className={getRoleBadgeColor(invitation.role)}>
-                              {invitation.role.replace('_', ' ')}
+                            <Badge variant="secondary" className="bg-blue-600">
+                              team member
                             </Badge>
                             <Badge variant="outline" className="border-yellow-500 text-yellow-400">
                               Pending
