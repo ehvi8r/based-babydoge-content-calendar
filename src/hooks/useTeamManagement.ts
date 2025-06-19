@@ -38,10 +38,10 @@ export const useTeamManagement = () => {
       
       setLoading(true);
 
-      // Load pending invitations
+      // Load pending invitations - include role field
       const { data: invitationData, error: invitationError } = await supabase
         .from('team_invitations')
-        .select('*')
+        .select('id, email, role, token, expires_at, accepted_at, created_at')
         .is('accepted_at', null)
         .order('created_at', { ascending: false });
 

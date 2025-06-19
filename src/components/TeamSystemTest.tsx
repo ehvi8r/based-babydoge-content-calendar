@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -141,11 +140,12 @@ const TeamSystemTest = () => {
             details: 'Clean state for direct user creation'
           };
         } else {
+          const pendingEmails = invitationsData?.map(i => i.email).join(', ') || '';
           results[results.length - 1] = {
             name: 'Checking Pending Invitations',
             status: 'warning',
             message: `${pendingCount} pending invitations found`,
-            details: `Consider cleaning up: ${invitationsData?.map(i => i.email).join(', ')}`
+            details: `Consider cleaning up: ${pendingEmails}`
           };
         }
       }
