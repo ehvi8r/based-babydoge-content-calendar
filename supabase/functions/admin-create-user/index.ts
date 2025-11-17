@@ -52,10 +52,9 @@ serve(async (req) => {
       )
     }
 
-    console.log('✅ Token verified for user:', user.email)
+    console.log('✅ Admin token verified')
 
     // Check if user has admin role
-    console.log('🔍 Checking admin role for user:', user.id)
     const { data: roleData, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
@@ -105,7 +104,7 @@ serve(async (req) => {
       )
     }
 
-    console.log(`📧 Creating user account for: ${email}`)
+    console.log('📧 Creating new user account')
 
     // Generate a temporary password
     const tempPassword = `TempPass${Math.random().toString(36).slice(2)}!`
