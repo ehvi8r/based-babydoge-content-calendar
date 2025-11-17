@@ -7,18 +7,29 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Mail, Plus, Clock, RefreshCw } from 'lucide-react';
+import { Users, Mail, Plus, Clock, RefreshCw, Trash2 } from 'lucide-react';
 import { useTeamManagement } from '@/hooks/useTeamManagement';
 import { useUserRole } from '@/hooks/useUserRole';
 import AdminUserCreation from './AdminUserCreation';
 import TeamSystemTest from './TeamSystemTest';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const TeamManagement = () => {
-  const { invitations, teamMembers, inviteTeamMember, loading, refreshTeamData } = useTeamManagement();
+  const { invitations, teamMembers, inviteTeamMember, removeUser, loading, refreshTeamData } = useTeamManagement();
   const { isAdmin } = useUserRole();
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [userToRemove, setUserToRemove] = useState<{ id: string; email: string } | null>(null);
 
   if (!isAdmin) {
     return null; // Only admins can manage team
@@ -39,6 +50,15 @@ const TeamManagement = () => {
     setRefreshing(true);
     await refreshTeamData();
     setTimeout(() => setRefreshing(false), 1000); // Visual feedback
+  };
+
+  const handleRemoveUser = async () => {
+    if (!userToRemove) return;
+    
+    const success = await removeUser(userToRemove.id, userToRemove.email);
+    if (success) {
+      setUserToRemove(null);
+    }
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -190,7 +210,7 @@ const TeamManagement = () => {
                     {teamMembers.map((member) => (
                       <div key={member.id} className="bg-slate-700/50 rounded-lg p-3">
                         <div className="flex items-center justify-between">
-                          <div>
+                          <div className="flex-1">
                             <div className="text-white font-medium">
                               {member.full_name || member.email}
                             </div>
@@ -204,9 +224,19 @@ const TeamManagement = () => {
                               ID: {member.id}
                             </div>
                           </div>
-                          <Badge variant="secondary" className={getRoleBadgeColor(member.role)}>
-                            {member.role.replace('_', ' ')}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className={getRoleBadgeColor(member.role)}>
+                              {member.role.replace('_', ' ')}
+                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setUserToRemove({ id: member.id, email: member.email })}
+                              className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                            >
+                              <Trash2 size={16} />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -221,6 +251,30 @@ const TeamManagement = () => {
           </Tabs>
         </AccordionContent>
       </AccordionItem>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={!!userToRemove} onOpenChange={() => setUserToRemove(null)}>
+        <AlertDialogContent className="bg-slate-800 border-red-500/20">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Remove User</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-300">
+              Are you sure you want to remove <span className="font-semibold text-white">{userToRemove?.email}</span> from the team?
+              This action will revoke their access and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-slate-700 text-white hover:bg-slate-600">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemoveUser}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Remove User
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Accordion>
   );
 };

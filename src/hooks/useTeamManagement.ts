@@ -187,6 +187,57 @@ export const useTeamManagement = () => {
     }
   };
 
+  const removeUser = async (userId: string, userEmail: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to remove users",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Prevent admins from removing themselves
+      if (user.id === userId) {
+        toast({
+          title: "Cannot Remove Yourself",
+          description: "You cannot remove your own admin account",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Delete the user's role
+      const { error } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error removing user:', error);
+        toast({
+          title: "Error",
+          description: "Failed to remove user",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      toast({
+        title: "User Removed",
+        description: `${userEmail} has been removed from the team`,
+      });
+
+      loadTeamData();
+      return true;
+    } catch (error) {
+      console.error('Error removing user:', error);
+      return false;
+    }
+  };
+
   useEffect(() => {
     console.log('🚀 useTeamManagement hook initializing...');
     loadTeamData();
@@ -261,6 +312,7 @@ export const useTeamManagement = () => {
     loading,
     inviteTeamMember,
     acceptInvitation,
+    removeUser,
     loadTeamData,
     refreshTeamData
   };
