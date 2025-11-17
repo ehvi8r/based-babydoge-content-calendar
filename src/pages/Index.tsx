@@ -53,7 +53,7 @@ const Index = ({ user }: IndexProps) => {
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden">
               <img 
-                src="https://foxymeme.com/assets/images/FoxySwapLogo.png" 
+                src="https://foxymeme.com/assets/images/FoxySwapRoundel.png" 
                 alt="FoxySwap Logo" 
                 className="w-full h-full object-contain"
               />
