@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar, Plus, Database, Upload, RefreshCw } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek } from 'date-fns';
 import { useCalendarEvents, CalendarEvent } from '@/hooks/useCalendarEvents';
 import { PublishedPost } from '@/hooks/usePublishedPosts';
 import { useGlobalBanners } from '@/hooks/useGlobalBanners';
@@ -102,7 +102,9 @@ const CalendarView = ({ scheduledPosts = [], publishedPosts = [] }: CalendarView
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
-  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const calendarStart = startOfWeek(monthStart);
+  const calendarEnd = endOfWeek(monthEnd);
+  const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
   const handleEventClick = (event: CalendarEvent, e: React.MouseEvent) => {
     e.stopPropagation();
