@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
 
     if (postsToPublish && postsToPublish.length > 0) {
       postsToPublish.forEach(post => {
-        console.log(`Post ${post.id}: scheduled_for=${post.scheduled_for}, retry_count=${post.retry_count}, content_hash=${post.content_hash}`);
+        console.log(`Post scheduled: retry_count=${post.retry_count}`);
       });
     }
 
@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
 
     for (const post of postsToPublish || []) {
       try {
-        console.log(`Processing post ${post.id} with content hash ${post.content_hash}...`);
+        console.log('Processing scheduled post...');
         
         // Check for recent duplicates before publishing
         const { data: isDuplicate, error: duplicateError } = await supabase
