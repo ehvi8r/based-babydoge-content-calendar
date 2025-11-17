@@ -53,12 +53,12 @@ const Index = ({ user }: IndexProps) => {
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden">
               <img 
-                src="https://babydoge20.com/assets/images/BABYlogo.png" 
-                alt="Based BabyDoge Logo" 
+                src="https://foxymeme.com/assets/images/FoxySwapLogo.png" 
+                alt="FoxySwap Logo" 
                 className="w-full h-full object-contain"
               />
             </div>
-            <h1 className="text-2xl font-bold text-white">Based BabyDoge Content Calendar</h1>
+            <h1 className="text-2xl font-bold text-white">Foxyswap Content Calendar</h1>
           </div>
           <div className="flex items-center gap-4">
             <UserRoleIndicator />
